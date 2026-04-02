@@ -6,6 +6,7 @@ export interface TimerState {
   status: TimerStatus;
   initialSeconds: number;
   currentSeconds: number;
+  overtime: boolean;
 }
 
 export type TimerCommand =
@@ -20,6 +21,7 @@ let state: TimerState = {
   status: "idle",
   initialSeconds: 0,
   currentSeconds: 0,
+  overtime: false,
 };
 
 let tickInterval: ReturnType<typeof setInterval> | null = null;
@@ -44,13 +46,20 @@ function startTicking() {
 
     if (state.mode === "countdown") {
       if (state.currentSeconds <= 0) {
-        state = { ...state, status: "finished", currentSeconds: 0 };
+        state = { ...state, status: "finished", currentSeconds: 0, overtime: true };
         stopTicking();
       } else {
-        state = { ...state, currentSeconds: state.currentSeconds - 1 };
+        const next = state.currentSeconds - 1;
+        state = { ...state, currentSeconds: next };
       }
     } else {
-      state = { ...state, currentSeconds: state.currentSeconds + 1 };
+      const next = state.currentSeconds + 1;
+      const hitTarget = state.initialSeconds > 0 && next >= state.initialSeconds && !state.overtime;
+      state = {
+        ...state,
+        currentSeconds: next,
+        overtime: state.overtime || hitTarget,
+      };
     }
 
     broadcast();
@@ -68,7 +77,7 @@ export function applyCommand(cmd: TimerCommand): TimerState {
   switch (cmd.type) {
     case "SET_MODE": {
       if (state.status === "idle") {
-        state = { ...state, mode: cmd.mode, currentSeconds: 0, initialSeconds: 0 };
+        state = { ...state, mode: cmd.mode, currentSeconds: 0, initialSeconds: 0, overtime: false };
       } else {
         state = { ...state, mode: cmd.mode };
       }
@@ -83,6 +92,7 @@ export function applyCommand(cmd: TimerCommand): TimerState {
         initialSeconds: total,
         currentSeconds: state.mode === "countdown" ? total : 0,
         status: "running",
+        overtime: false,
       };
       startTicking();
       break;
@@ -105,6 +115,7 @@ export function applyCommand(cmd: TimerCommand): TimerState {
         ...state,
         status: "idle",
         currentSeconds: state.mode === "countdown" ? state.initialSeconds : 0,
+        overtime: false,
       };
       break;
     }
@@ -117,6 +128,7 @@ export function applyCommand(cmd: TimerCommand): TimerState {
         initialSeconds: total,
         currentSeconds: state.mode === "countdown" ? total : 0,
         status: "running",
+        overtime: false,
       };
       startTicking();
       break;

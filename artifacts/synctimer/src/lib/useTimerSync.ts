@@ -8,6 +8,7 @@ export interface TimerState {
   status: TimerStatus;
   initialSeconds: number;
   currentSeconds: number;
+  overtime: boolean;
 }
 
 export type TimerCommand =
@@ -22,6 +23,7 @@ const DEFAULT_STATE: TimerState = {
   status: "idle",
   initialSeconds: 0,
   currentSeconds: 0,
+  overtime: false,
 };
 
 function getWsUrl(): string {

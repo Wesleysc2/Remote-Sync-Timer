@@ -3,7 +3,17 @@ import { useTimerSync, formatTime } from "@/lib/useTimerSync";
 import { Link } from "wouter";
 
 export default function DisplayPage() {
-  const { mode, status, currentSeconds, initialSeconds, connected, pause } = useTimerSync();
+  const { mode, status, currentSeconds, initialSeconds, overtime, connected, pause } = useTimerSync();
+
+  const isFinished = status === "finished";
+  const isRunning = status === "running";
+  const isPaused = status === "paused";
+  const showAlert = overtime || isFinished;
+
+  const progress =
+    mode === "countdown" && initialSeconds > 0
+      ? (currentSeconds / initialSeconds) * 100
+      : 0;
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -16,17 +26,28 @@ export default function DisplayPage() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [pause]);
 
-  const isFinished = status === "finished";
-  const isRunning = status === "running";
-  const isPaused = status === "paused";
-
-  const progress =
-    mode === "countdown" && initialSeconds > 0
-      ? (currentSeconds / initialSeconds) * 100
-      : 0;
+  useEffect(() => {
+    if (status === "idle") {
+      document.title = "SyncTimer";
+      return;
+    }
+    const timeStr = formatTime(currentSeconds);
+    if (isFinished) {
+      document.title = `⏰ 00:00 — TEMPO ESGOTADO`;
+    } else if (overtime) {
+      document.title = `🔴 +${timeStr} — OVERTIME`;
+    } else if (isPaused) {
+      document.title = `⏸ ${timeStr} — PAUSADO`;
+    } else {
+      document.title = timeStr;
+    }
+    return () => {
+      document.title = "SyncTimer";
+    };
+  }, [status, currentSeconds, isFinished, overtime, isPaused]);
 
   const timerColor = () => {
-    if (isFinished) return "text-red-400";
+    if (showAlert) return "text-red-400";
     if (isPaused) return "text-yellow-300";
     if (mode === "countdown" && initialSeconds > 0) {
       const pct = currentSeconds / initialSeconds;
@@ -38,6 +59,22 @@ export default function DisplayPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center relative overflow-hidden">
+
+      {showAlert && (
+        <div
+          className="pointer-events-none fixed inset-0 z-10"
+          style={{ animation: "redFlash 1.2s ease-in-out infinite" }}
+        />
+      )}
+
+      <style>{`
+        @keyframes redFlash {
+          0%   { background-color: rgba(220, 38, 38, 0); }
+          50%  { background-color: rgba(220, 38, 38, 0.22); }
+          100% { background-color: rgba(220, 38, 38, 0); }
+        }
+      `}</style>
+
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <span className={`text-[10px] font-mono px-2 py-1 rounded ${connected ? "bg-emerald-900/60 text-emerald-400" : "bg-red-900/60 text-red-400"}`}>
           {connected ? "● ONLINE" : "○ CONECTANDO"}
@@ -50,7 +87,7 @@ export default function DisplayPage() {
         </Link>
       </div>
 
-      {mode === "countdown" && initialSeconds > 0 && (
+      {mode === "countdown" && initialSeconds > 0 && !showAlert && (
         <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-800">
           <div
             className="h-full bg-indigo-500 transition-all duration-1000"
@@ -59,45 +96,41 @@ export default function DisplayPage() {
         </div>
       )}
 
-      <div className="text-center px-8 select-none">
-        {isFinished ? (
-          <div className="animate-pulse">
-            <p className="text-2xl font-black tracking-widest text-red-400 uppercase mb-4">
-              TEMPO ESGOTADO
+      <div className="relative z-20 text-center px-8 select-none">
+        {showAlert && (
+          <p
+            className="text-xl font-black tracking-widest text-red-400 uppercase mb-4"
+            style={{ animation: "redFlash 1.2s ease-in-out infinite" }}
+          >
+            {isFinished ? "TEMPO ESGOTADO" : "TEMPO ESGOTADO — OVERTIME"}
+          </p>
+        )}
+
+        <div
+          className={`text-[15vw] sm:text-[20vw] font-mono font-black leading-none transition-colors duration-500 ${timerColor()}`}
+        >
+          {formatTime(currentSeconds)}
+        </div>
+
+        {status === "idle" && (
+          <p className="text-slate-500 text-lg font-mono uppercase tracking-widest mt-6">
+            AGUARDANDO
+          </p>
+        )}
+
+        {isPaused && !showAlert && (
+          <p className="text-yellow-400 text-xl font-mono uppercase tracking-widest mt-6 animate-pulse">
+            PAUSADO
+          </p>
+        )}
+
+        {isRunning && !showAlert && (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse" />
+            <p className="text-slate-400 text-sm font-mono uppercase tracking-widest">
+              {mode === "countdown" ? "REGRESSIVO" : "PROGRESSIVO"}
             </p>
-            <div className={`text-[15vw] sm:text-[20vw] font-mono font-black leading-none text-red-400`}>
-              00:00
-            </div>
           </div>
-        ) : (
-          <>
-            <div
-              className={`text-[15vw] sm:text-[20vw] font-mono font-black leading-none transition-colors duration-500 ${timerColor()}`}
-            >
-              {formatTime(currentSeconds)}
-            </div>
-
-            {status === "idle" && (
-              <p className="text-slate-500 text-lg font-mono uppercase tracking-widest mt-6">
-                AGUARDANDO
-              </p>
-            )}
-
-            {isPaused && (
-              <p className="text-yellow-400 text-xl font-mono uppercase tracking-widest mt-6 animate-pulse">
-                PAUSADO
-              </p>
-            )}
-
-            {isRunning && (
-              <div className="flex items-center justify-center gap-3 mt-6">
-                <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse" />
-                <p className="text-slate-400 text-sm font-mono uppercase tracking-widest">
-                  {mode === "countdown" ? "REGRESSIVO" : "PROGRESSIVO"}
-                </p>
-              </div>
-            )}
-          </>
         )}
       </div>
     </div>
