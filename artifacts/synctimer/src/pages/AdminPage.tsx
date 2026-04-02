@@ -233,10 +233,28 @@ export default function AdminPage() {
 
         {/* Quick triggers — always visible */}
         <div className="pt-2 border-t border-white/30">
-          <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-wider text-center">
+          <h3 className="text-xs font-bold text-white mb-4 uppercase tracking-wider text-center">
             Gatilhos Rapidos
           </h3>
-          <div className="grid grid-cols-4 gap-2">
+
+          {/* Mobile: vertical stack */}
+          <div className="flex flex-col gap-3 sm:hidden">
+            {QUICK_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => setQuick(preset.minutes)}
+                className="relative w-full py-6 bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 border border-white/30 text-white rounded-2xl font-timer font-black text-4xl shadow-lg transition-all active:scale-95"
+              >
+                {preset.label}
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] text-white/40 font-mono">
+                  [{preset.key}]
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop/tablet: horizontal grid */}
+          <div className="hidden sm:grid grid-cols-4 gap-2">
             {QUICK_PRESETS.map((preset) => (
               <button
                 key={preset.label}
