@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTimerSync, formatTime } from "@/lib/useTimerSync";
+import { useTimerSounds, SOUND_PRESETS } from "@/lib/useTimerSounds";
 import { Link } from "wouter";
 
 const QUICK_PRESETS = [
@@ -10,7 +11,8 @@ const QUICK_PRESETS = [
 ];
 
 export default function AdminPage() {
-  const { mode, status, currentSeconds, initialSeconds, connected, setMode, start, pause, reset, setQuick } = useTimerSync();
+  const { mode, status, currentSeconds, initialSeconds, connected, soundPreset, setMode, start, pause, reset, setQuick, setSound } = useTimerSync();
+  const { preview } = useTimerSounds(soundPreset);
 
   const [inputMinutes, setInputMinutes] = useState(0);
   const [inputSeconds, setInputSeconds] = useState(0);
@@ -229,6 +231,32 @@ export default function AdminPage() {
             Resetar Timer
             <span className="ml-2 bg-white/10 px-1 rounded font-mono hidden sm:inline">[R]</span>
           </button>
+        </div>
+
+        {/* Sound selector — desktop/tablet only */}
+        <div className="hidden sm:block pt-2 border-t border-white/30">
+          <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-wider text-center">
+            Som do Timer
+          </h3>
+          <div className="grid grid-cols-5 gap-2">
+            {SOUND_PRESETS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => {
+                  setSound(s.id);
+                  preview(s.id);
+                }}
+                className={`flex flex-col items-center gap-1 py-3 rounded-xl border font-bold text-sm transition-all active:scale-95 ${
+                  soundPreset === s.id
+                    ? "bg-indigo-600 border-white text-white shadow-lg"
+                    : "bg-slate-800 border-white/20 text-slate-300 hover:bg-slate-700 hover:border-white/50"
+                }`}
+              >
+                <span className="text-xl">{s.emoji}</span>
+                <span className="text-[11px] uppercase tracking-wide">{s.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Quick triggers — always visible */}

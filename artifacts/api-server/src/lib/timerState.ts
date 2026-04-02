@@ -7,6 +7,7 @@ export interface TimerState {
   initialSeconds: number;
   currentSeconds: number;
   overtime: boolean;
+  soundPreset: string;
 }
 
 export type TimerCommand =
@@ -14,7 +15,8 @@ export type TimerCommand =
   | { type: "START"; minutes: number; seconds: number }
   | { type: "PAUSE" }
   | { type: "RESET" }
-  | { type: "QUICK"; minutes: number };
+  | { type: "QUICK"; minutes: number }
+  | { type: "SET_SOUND"; preset: string };
 
 let state: TimerState = {
   mode: "countdown",
@@ -22,6 +24,7 @@ let state: TimerState = {
   initialSeconds: 0,
   currentSeconds: 0,
   overtime: false,
+  soundPreset: "bipe",
 };
 
 let tickInterval: ReturnType<typeof setInterval> | null = null;
@@ -131,6 +134,11 @@ export function applyCommand(cmd: TimerCommand): TimerState {
         overtime: false,
       };
       startTicking();
+      break;
+    }
+
+    case "SET_SOUND": {
+      state = { ...state, soundPreset: cmd.preset };
       break;
     }
   }

@@ -9,6 +9,7 @@ export interface TimerState {
   initialSeconds: number;
   currentSeconds: number;
   overtime: boolean;
+  soundPreset: string;
 }
 
 export type TimerCommand =
@@ -16,7 +17,8 @@ export type TimerCommand =
   | { type: "START"; minutes: number; seconds: number }
   | { type: "PAUSE" }
   | { type: "RESET" }
-  | { type: "QUICK"; minutes: number };
+  | { type: "QUICK"; minutes: number }
+  | { type: "SET_SOUND"; preset: string };
 
 const DEFAULT_STATE: TimerState = {
   mode: "countdown",
@@ -24,6 +26,7 @@ const DEFAULT_STATE: TimerState = {
   initialSeconds: 0,
   currentSeconds: 0,
   overtime: false,
+  soundPreset: "bipe",
 };
 
 function getWsUrl(): string {
@@ -89,8 +92,9 @@ export function useTimerSync() {
   const pause = useCallback(() => sendCommand({ type: "PAUSE" }), [sendCommand]);
   const reset = useCallback(() => sendCommand({ type: "RESET" }), [sendCommand]);
   const setQuick = useCallback((minutes: number) => sendCommand({ type: "QUICK", minutes }), [sendCommand]);
+  const setSound = useCallback((preset: string) => sendCommand({ type: "SET_SOUND", preset }), [sendCommand]);
 
-  return { ...state, connected, setMode, start, pause, reset, setQuick };
+  return { ...state, connected, setMode, start, pause, reset, setQuick, setSound };
 }
 
 export function formatTime(totalSeconds: number): string {

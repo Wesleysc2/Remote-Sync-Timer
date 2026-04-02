@@ -4,8 +4,8 @@ import { useTimerSounds } from "@/lib/useTimerSounds";
 import { Link } from "wouter";
 
 export default function DisplayPage() {
-  const { mode, status, currentSeconds, initialSeconds, overtime, connected, pause } = useTimerSync();
-  const { playStart, playPause, primeAudio } = useTimerSounds();
+  const { mode, status, currentSeconds, initialSeconds, overtime, connected, pause, soundPreset } = useTimerSync();
+  const { playStart, playPause, primeAudio } = useTimerSounds(soundPreset);
   const prevStatusRef = useRef<string | null>(null);
   const [audioReady, setAudioReady] = useState(false);
 
