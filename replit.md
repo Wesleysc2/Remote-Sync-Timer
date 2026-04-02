@@ -48,6 +48,17 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
+## SyncTimer App
+
+A real-time synchronized timer app at `artifacts/synctimer` (frontend) + WebSocket backend in `artifacts/api-server`.
+
+- **Display screen** (`/`) — fullscreen timer view, connects via WebSocket
+- **Admin/control panel** (`/admin`) — sends commands via WebSocket
+- **WebSocket server** — lives at `/ws` on the API server; maintains timer state server-side and broadcasts to all clients
+- Timer state and ticking happen entirely server-side (`artifacts/api-server/src/lib/timerState.ts`)
+- WebSocket handler: `artifacts/api-server/src/lib/wsServer.ts`
+- Frontend hook: `artifacts/synctimer/src/lib/useTimerSync.ts`
+
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)

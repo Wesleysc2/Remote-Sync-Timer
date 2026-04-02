@@ -1,29 +1,9 @@
-import { useEffect, useRef } from "react";
-import { useTimerStore, formatTime } from "@/lib/timerStore";
+import { useEffect } from "react";
+import { useTimerSync, formatTime } from "@/lib/useTimerSync";
 import { Link } from "wouter";
 
 export default function DisplayPage() {
-  const { mode, status, currentSeconds, initialSeconds, tick, pause } = useTimerStore();
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (status === "running") {
-      intervalRef.current = setInterval(() => {
-        tick();
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [status, tick]);
+  const { mode, status, currentSeconds, initialSeconds, connected, pause } = useTimerSync();
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -58,7 +38,10 @@ export default function DisplayPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <span className={`text-[10px] font-mono px-2 py-1 rounded ${connected ? "bg-emerald-900/60 text-emerald-400" : "bg-red-900/60 text-red-400"}`}>
+          {connected ? "● ONLINE" : "○ CONECTANDO"}
+        </span>
         <Link
           href="/admin"
           className="px-4 py-2 bg-slate-800/90 hover:bg-slate-700 backdrop-blur-md border border-slate-600 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white shadow-xl transition-all uppercase"
@@ -82,7 +65,7 @@ export default function DisplayPage() {
             <p className="text-2xl font-black tracking-widest text-red-400 uppercase mb-4">
               TEMPO ESGOTADO
             </p>
-            <div className="text-[15vw] sm:text-[20vw] font-mono font-black text-red-400 leading-none">
+            <div className={`text-[15vw] sm:text-[20vw] font-mono font-black leading-none text-red-400`}>
               00:00
             </div>
           </div>

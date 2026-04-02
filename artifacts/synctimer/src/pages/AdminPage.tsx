@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { useTimerStore, formatTime } from "@/lib/timerStore";
+import { useState, useEffect } from "react";
+import { useTimerSync, formatTime } from "@/lib/useTimerSync";
 import { Link } from "wouter";
 
 const QUICK_PRESETS = [
@@ -10,30 +10,10 @@ const QUICK_PRESETS = [
 ];
 
 export default function AdminPage() {
-  const { mode, status, currentSeconds, initialSeconds, setMode, start, pause, reset, setQuick, tick } = useTimerStore();
+  const { mode, status, currentSeconds, initialSeconds, connected, setMode, start, pause, reset, setQuick } = useTimerSync();
 
   const [inputMinutes, setInputMinutes] = useState(0);
   const [inputSeconds, setInputSeconds] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (status === "running") {
-      intervalRef.current = setInterval(() => {
-        tick();
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [status, tick]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -95,7 +75,10 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4 flex flex-col items-center">
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <span className={`text-[10px] font-mono px-2 py-1 rounded ${connected ? "bg-emerald-900/60 text-emerald-400" : "bg-red-900/60 text-red-400"}`}>
+          {connected ? "● ONLINE" : "○ CONECTANDO"}
+        </span>
         <Link
           href="/"
           className="px-4 py-2 bg-slate-800/90 hover:bg-slate-700 backdrop-blur-md border border-slate-600 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white shadow-xl transition-all uppercase"
@@ -104,7 +87,7 @@ export default function AdminPage() {
         </Link>
       </div>
 
-      <div className="max-w-md w-full space-y-5">
+      <div className="max-w-md w-full space-y-5 pt-14">
         <div className="text-center pb-2 border-b border-white">
           <h1 className="text-xl font-black tracking-tight text-white uppercase">
             Painel de Controle
