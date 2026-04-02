@@ -88,7 +88,9 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-md w-full space-y-5 pt-14">
-        <div className="text-center pb-2 border-b border-white">
+
+        {/* Header — desktop/tablet only */}
+        <div className="hidden sm:block text-center pb-2 border-b border-white">
           <h1 className="text-xl font-black tracking-tight text-white uppercase">
             Painel de Controle
           </h1>
@@ -99,7 +101,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-lg border border-white/20">
+        {/* Mode toggle — desktop/tablet only */}
+        <div className="hidden sm:grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-lg border border-white/20">
           <button
             onClick={() => setMode("countdown")}
             className={`py-3 rounded-md font-bold text-sm transition-all uppercase ${
@@ -122,7 +125,8 @@ export default function AdminPage() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-slate-800 rounded-xl p-4 shadow-lg border border-white/20 space-y-4">
+        {/* Time input form — desktop/tablet only */}
+        <form onSubmit={handleSubmit} className="hidden sm:block bg-slate-800 rounded-xl p-4 shadow-lg border border-white/20 space-y-4">
           <div className="flex items-center gap-2">
             <div className="flex-1 flex flex-col items-center">
               <label className="text-xs font-bold text-white mb-1 uppercase">Min</label>
@@ -202,7 +206,8 @@ export default function AdminPage() {
           </button>
         </form>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Pause/Reset buttons — desktop/tablet only */}
+        <div className="hidden sm:grid grid-cols-2 gap-4">
           <button
             onClick={pause}
             className={`col-span-2 py-6 border border-white/10 text-white rounded-xl font-black text-2xl shadow-lg transition-transform active:scale-95 uppercase relative ${
@@ -226,6 +231,7 @@ export default function AdminPage() {
           </button>
         </div>
 
+        {/* Quick triggers — always visible */}
         <div className="pt-2 border-t border-white/30">
           <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-wider text-center">
             Gatilhos Rapidos
@@ -246,8 +252,9 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Current time display — desktop/tablet only */}
         {(status === "running" || status === "paused" || status === "finished") && (
-          <div className="text-center pt-2 border-t border-white/20">
+          <div className="hidden sm:block text-center pt-2 border-t border-white/20">
             <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Tempo Atual</p>
             <p className="text-4xl font-timer font-black text-white">{formatTime(currentSeconds)}</p>
             {mode === "countdown" && initialSeconds > 0 && (
