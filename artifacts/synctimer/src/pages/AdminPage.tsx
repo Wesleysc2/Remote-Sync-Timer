@@ -249,7 +249,7 @@ export default function AdminPage() {
         {(status === "running" || status === "paused" || status === "finished") && (
           <div className="text-center pt-2 border-t border-white/20">
             <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Tempo Atual</p>
-            <p className="text-4xl font-mono font-black text-white">{formatTime(currentSeconds)}</p>
+            <p className="text-4xl font-timer font-black text-white">{formatTime(currentSeconds)}</p>
             {mode === "countdown" && initialSeconds > 0 && (
               <div className="w-full bg-slate-700 rounded-full h-2 mt-3">
                 <div

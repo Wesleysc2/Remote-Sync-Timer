@@ -88,7 +88,8 @@
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+  --app-font-mono: 'JetBrains Mono', monospace;
+  --app-font-timer: 'Orbitron', monospace;
   --radius: 0.5rem;
 
   --primary-border: hsl(var(--primary));
@@ -114,5 +115,11 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .font-timer {
+    font-family: var(--app-font-timer);
   }
 }

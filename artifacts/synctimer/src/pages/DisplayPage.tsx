@@ -107,7 +107,7 @@ export default function DisplayPage() {
         )}
 
         <div
-          className={`text-[15vw] sm:text-[20vw] font-mono font-black leading-none transition-colors duration-500 ${timerColor()}`}
+          className={`text-[15vw] sm:text-[20vw] font-timer font-black leading-none transition-colors duration-500 ${timerColor()}`}
         >
           {formatTime(currentSeconds)}
         </div>
