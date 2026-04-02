@@ -1,9 +1,37 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTimerSync, formatTime } from "@/lib/useTimerSync";
+import { useTimerSounds } from "@/lib/useTimerSounds";
 import { Link } from "wouter";
 
 export default function DisplayPage() {
   const { mode, status, currentSeconds, initialSeconds, overtime, connected, pause } = useTimerSync();
+  const { playStart, playPause, primeAudio } = useTimerSounds();
+  const prevStatusRef = useRef<string | null>(null);
+  const [audioReady, setAudioReady] = useState(false);
+
+  useEffect(() => {
+    const activate = () => {
+      primeAudio();
+      setAudioReady(true);
+    };
+    window.addEventListener("click", activate, { once: true });
+    window.addEventListener("keydown", activate, { once: true });
+    window.addEventListener("touchstart", activate, { once: true });
+    return () => {
+      window.removeEventListener("click", activate);
+      window.removeEventListener("keydown", activate);
+      window.removeEventListener("touchstart", activate);
+    };
+  }, [primeAudio]);
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    if (prev !== null && prev !== status) {
+      if (status === "running") playStart();
+      else if (status === "paused") playPause();
+    }
+    prevStatusRef.current = status;
+  }, [status, playStart, playPause]);
 
   const isFinished = status === "finished";
   const isRunning = status === "running";
@@ -74,6 +102,12 @@ export default function DisplayPage() {
           100% { background-color: rgba(220, 38, 38, 0); }
         }
       `}</style>
+
+      {!audioReady && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 bg-white/10 backdrop-blur border border-white/20 rounded-full text-[11px] text-white/50 font-mono animate-pulse pointer-events-none">
+          🔊 clique para ativar o som
+        </div>
+      )}
 
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <span className={`text-[10px] font-mono px-2 py-1 rounded ${connected ? "bg-emerald-900/60 text-emerald-400" : "bg-red-900/60 text-red-400"}`}>
