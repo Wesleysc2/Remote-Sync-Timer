@@ -298,6 +298,63 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Mobile-only: pause, start form, reset */}
+        <div className="flex flex-col gap-3 sm:hidden pt-2 border-t border-white/20">
+
+          {/* Pause/Resume */}
+          <button
+            onClick={pause}
+            className={`w-full py-5 border border-white/10 text-white rounded-2xl font-black text-2xl shadow-lg transition-all active:scale-95 uppercase ${
+              status === "paused"
+                ? "bg-emerald-600 active:bg-emerald-700"
+                : "bg-yellow-600 active:bg-yellow-700"
+            }`}
+          >
+            {status === "paused" ? "RETOMAR" : "PAUSAR"}
+          </button>
+
+          {/* Start form */}
+          <form onSubmit={handleSubmit} className="bg-slate-800 rounded-2xl p-4 border border-white/20 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 flex flex-col items-center gap-1">
+                <label className="text-[10px] font-bold text-white uppercase tracking-widest">Min</label>
+                <div className="flex items-center gap-2 w-full">
+                  <button type="button" onClick={() => adjustMinutes(-1)}
+                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
+                  <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputMinutes).padStart(2, "0")}</span>
+                  <button type="button" onClick={() => adjustMinutes(1)}
+                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">:</div>
+              <div className="flex-1 flex flex-col items-center gap-1">
+                <label className="text-[10px] font-bold text-white uppercase tracking-widest">Seg</label>
+                <div className="flex items-center gap-2 w-full">
+                  <button type="button" onClick={() => adjustSeconds(-1)}
+                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
+                  <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputSeconds).padStart(2, "0")}</span>
+                  <button type="button" onClick={() => adjustSeconds(1)}
+                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
+                </div>
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="w-full py-4 bg-indigo-600 active:bg-indigo-700 text-white font-black text-lg rounded-xl transition-all active:scale-95 uppercase"
+            >
+              DEFINIR E INICIAR
+            </button>
+          </form>
+
+          {/* Reset */}
+          <button
+            onClick={reset}
+            className="w-full py-3 bg-slate-800 active:bg-red-950 border border-white/30 text-white/70 rounded-2xl font-bold uppercase tracking-widest text-sm transition-all active:scale-95"
+          >
+            Resetar Timer
+          </button>
+        </div>
+
         {/* Current time display — desktop/tablet only */}
         {(status === "running" || status === "paused" || status === "finished") && (
           <div className="hidden sm:block text-center pt-2 border-t border-white/20">
