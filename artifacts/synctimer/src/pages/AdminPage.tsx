@@ -342,7 +342,7 @@ export default function AdminPage() {
             </button>
 
             {/* Start form */}
-            <form onSubmit={handleSubmit} className="bg-slate-900/60 rounded-xl p-3 border border-white/10 space-y-3">
+            <form onSubmit={handleSubmit} className="bg-slate-900/60 rounded-xl p-3 border border-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex-1 flex flex-col items-center gap-1">
                   <label className="text-[10px] font-bold text-white uppercase tracking-widest">Min</label>
@@ -366,12 +366,6 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
-              <button
-                type="submit"
-                className="w-full py-4 bg-indigo-600 active:bg-indigo-700 text-white font-black text-lg rounded-xl transition-all active:scale-95 uppercase"
-              >
-                DEFINIR E INICIAR
-              </button>
             </form>
 
             {/* Reset */}
