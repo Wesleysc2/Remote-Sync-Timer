@@ -37,18 +37,22 @@ export default function DisplayPage() {
     prevStatusRef.current = status;
   }, [status, playStart, playPause]);
 
-  // Show logo after 3s of idle; hide immediately when running
+  // Show logo after 3s idle OR after 30s of finished/overtime
   useEffect(() => {
     if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
+
     if (status === "idle") {
-      logoTimerRef.current = setTimeout(() => setShowLogo(true), IDLE_LOGO_DELAY);
+      logoTimerRef.current = setTimeout(() => setShowLogo(true), 3_000);
+    } else if (status === "finished" || overtime) {
+      logoTimerRef.current = setTimeout(() => setShowLogo(true), 30_000);
     } else {
       setShowLogo(false);
     }
+
     return () => {
       if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
     };
-  }, [status]);
+  }, [status, overtime]);
 
   const isFinished = status === "finished";
   const isRunning = status === "running";
@@ -153,7 +157,7 @@ export default function DisplayPage() {
         style={{ opacity: showLogo ? 1 : 0 }}
       >
         <img
-          src={`${import.meta.env.BASE_URL}idle-logo.png`}
+          src={`${import.meta.env.BASE_URL}idle-logo.svg`}
           alt="Logo"
           className="max-w-[70vw] max-h-[70vh] object-contain"
         />
