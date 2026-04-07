@@ -159,7 +159,7 @@ export default function DisplayPage() {
         <img
           src={`${import.meta.env.BASE_URL}idle-logo.svg`}
           alt="Logo"
-          className="w-[80vw] sm:w-[85vw] h-auto object-contain"
+          className="h-[15vw] sm:h-[20vw] w-auto object-contain"
         />
       </div>
 
