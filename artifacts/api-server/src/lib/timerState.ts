@@ -24,7 +24,7 @@ let state: TimerState = {
   initialSeconds: 0,
   currentSeconds: 0,
   overtime: false,
-  soundPreset: "bipe",
+  soundPreset: "nenhum",
 };
 
 let tickInterval: ReturnType<typeof setInterval> | null = null;

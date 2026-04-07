@@ -26,7 +26,7 @@ const DEFAULT_STATE: TimerState = {
   initialSeconds: 0,
   currentSeconds: 0,
   overtime: false,
-  soundPreset: "bipe",
+  soundPreset: "nenhum",
 };
 
 function getWsUrl(): string {
