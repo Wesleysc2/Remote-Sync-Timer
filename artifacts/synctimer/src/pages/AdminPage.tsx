@@ -91,6 +91,30 @@ export default function AdminPage() {
 
       <div className="max-w-md w-full space-y-5 pt-14">
 
+        {/* Mode toggle — mobile only */}
+        <div className="grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-xl border border-white/20 sm:hidden">
+          <button
+            onClick={() => setMode("countdown")}
+            className={`py-3 rounded-lg font-bold text-sm transition-all uppercase ${
+              mode === "countdown"
+                ? "bg-white text-slate-900 shadow"
+                : "text-white"
+            }`}
+          >
+            Regressivo
+          </button>
+          <button
+            onClick={() => setMode("countup")}
+            className={`py-3 rounded-lg font-bold text-sm transition-all uppercase ${
+              mode === "countup"
+                ? "bg-white text-slate-900 shadow"
+                : "text-white"
+            }`}
+          >
+            Progressivo
+          </button>
+        </div>
+
         {/* Header — desktop/tablet only */}
         <div className="hidden sm:block text-center pb-2 border-b border-white">
           <h1 className="text-xl font-black tracking-tight text-white uppercase">
@@ -298,61 +322,66 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Mobile-only: pause, start form, reset */}
-        <div className="flex flex-col gap-3 sm:hidden pt-2 border-t border-white/20">
+        {/* Mobile-only: controls group */}
+        <div className="sm:hidden">
+          <h3 className="text-xs font-bold text-white mb-4 uppercase tracking-wider text-center">
+            Controles
+          </h3>
+          <div className="bg-slate-800/60 border border-white/20 rounded-2xl p-4 flex flex-col gap-3">
 
-          {/* Pause/Resume */}
-          <button
-            onClick={pause}
-            className={`w-full py-5 border border-white/10 text-white rounded-2xl font-black text-2xl shadow-lg transition-all active:scale-95 uppercase ${
-              status === "paused"
-                ? "bg-emerald-600 active:bg-emerald-700"
-                : "bg-yellow-600 active:bg-yellow-700"
-            }`}
-          >
-            {status === "paused" ? "RETOMAR" : "PAUSAR"}
-          </button>
-
-          {/* Start form */}
-          <form onSubmit={handleSubmit} className="bg-slate-800 rounded-2xl p-4 border border-white/20 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 flex flex-col items-center gap-1">
-                <label className="text-[10px] font-bold text-white uppercase tracking-widest">Min</label>
-                <div className="flex items-center gap-2 w-full">
-                  <button type="button" onClick={() => adjustMinutes(-1)}
-                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
-                  <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputMinutes).padStart(2, "0")}</span>
-                  <button type="button" onClick={() => adjustMinutes(1)}
-                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">:</div>
-              <div className="flex-1 flex flex-col items-center gap-1">
-                <label className="text-[10px] font-bold text-white uppercase tracking-widest">Seg</label>
-                <div className="flex items-center gap-2 w-full">
-                  <button type="button" onClick={() => adjustSeconds(-1)}
-                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
-                  <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputSeconds).padStart(2, "0")}</span>
-                  <button type="button" onClick={() => adjustSeconds(1)}
-                    className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
-                </div>
-              </div>
-            </div>
+            {/* Pause/Resume */}
             <button
-              type="submit"
-              className="w-full py-4 bg-indigo-600 active:bg-indigo-700 text-white font-black text-lg rounded-xl transition-all active:scale-95 uppercase"
+              onClick={pause}
+              className={`w-full py-5 border border-white/10 text-white rounded-2xl font-black text-2xl shadow-lg transition-all active:scale-95 uppercase ${
+                status === "paused"
+                  ? "bg-emerald-600 active:bg-emerald-700"
+                  : "bg-yellow-600 active:bg-yellow-700"
+              }`}
             >
-              DEFINIR E INICIAR
+              {status === "paused" ? "RETOMAR" : "PAUSAR"}
             </button>
-          </form>
 
-          {/* Reset */}
-          <button
-            onClick={reset}
-            className="w-full py-3 bg-slate-800 active:bg-red-950 border border-white/30 text-white/70 rounded-2xl font-bold uppercase tracking-widest text-sm transition-all active:scale-95"
-          >
-            Resetar Timer
-          </button>
+            {/* Start form */}
+            <form onSubmit={handleSubmit} className="bg-slate-900/60 rounded-xl p-3 border border-white/10 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 flex flex-col items-center gap-1">
+                  <label className="text-[10px] font-bold text-white uppercase tracking-widest">Min</label>
+                  <div className="flex items-center gap-2 w-full">
+                    <button type="button" onClick={() => adjustMinutes(-1)}
+                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
+                    <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputMinutes).padStart(2, "0")}</span>
+                    <button type="button" onClick={() => adjustMinutes(1)}
+                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-white mb-1">:</div>
+                <div className="flex-1 flex flex-col items-center gap-1">
+                  <label className="text-[10px] font-bold text-white uppercase tracking-widest">Seg</label>
+                  <div className="flex items-center gap-2 w-full">
+                    <button type="button" onClick={() => adjustSeconds(-1)}
+                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
+                    <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputSeconds).padStart(2, "0")}</span>
+                    <button type="button" onClick={() => adjustSeconds(1)}
+                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-4 bg-indigo-600 active:bg-indigo-700 text-white font-black text-lg rounded-xl transition-all active:scale-95 uppercase"
+              >
+                DEFINIR E INICIAR
+              </button>
+            </form>
+
+            {/* Reset */}
+            <button
+              onClick={reset}
+              className="w-full py-3 bg-slate-900/40 active:bg-red-950 border border-white/20 text-white/60 rounded-xl font-bold uppercase tracking-widest text-sm transition-all active:scale-95"
+            >
+              Resetar Timer
+            </button>
+          </div>
         </div>
 
         {/* Current time display — desktop/tablet only */}
