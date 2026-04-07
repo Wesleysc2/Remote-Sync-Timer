@@ -3,11 +3,15 @@ import { useTimerSync, formatTime } from "@/lib/useTimerSync";
 import { useTimerSounds } from "@/lib/useTimerSounds";
 import { Link } from "wouter";
 
+const IDLE_LOGO_DELAY = 3000;
+
 export default function DisplayPage() {
   const { mode, status, currentSeconds, initialSeconds, overtime, connected, pause, soundPreset } = useTimerSync();
   const { playStart, playPause, primeAudio } = useTimerSounds(soundPreset);
   const prevStatusRef = useRef<string | null>(null);
   const [audioReady, setAudioReady] = useState(false);
+  const [showLogo, setShowLogo] = useState(false);
+  const logoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const activate = () => {
@@ -32,6 +36,19 @@ export default function DisplayPage() {
     }
     prevStatusRef.current = status;
   }, [status, playStart, playPause]);
+
+  // Show logo after 3s of idle; hide immediately when running
+  useEffect(() => {
+    if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
+    if (status === "idle") {
+      logoTimerRef.current = setTimeout(() => setShowLogo(true), IDLE_LOGO_DELAY);
+    } else {
+      setShowLogo(false);
+    }
+    return () => {
+      if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
+    };
+  }, [status]);
 
   const isFinished = status === "finished";
   const isRunning = status === "running";
@@ -130,7 +147,23 @@ export default function DisplayPage() {
         </div>
       )}
 
-      <div className="relative z-20 text-center px-8 select-none">
+      {/* Logo overlay — fades in after 3s idle */}
+      <div
+        className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none transition-opacity duration-1000"
+        style={{ opacity: showLogo ? 1 : 0 }}
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}idle-logo.png`}
+          alt="Logo"
+          className="max-w-[70vw] max-h-[70vh] object-contain"
+        />
+      </div>
+
+      {/* Timer content — fades out when logo shows */}
+      <div
+        className="relative z-20 text-center px-8 select-none transition-opacity duration-1000"
+        style={{ opacity: showLogo ? 0 : 1 }}
+      >
         {showAlert && (
           <p
             className="text-xl font-black tracking-widest text-red-400 uppercase mb-4"
