@@ -341,33 +341,6 @@ export default function AdminPage() {
               {status === "paused" ? "RETOMAR" : "PAUSAR"}
             </button>
 
-            {/* Start form */}
-            <form onSubmit={handleSubmit} className="bg-slate-900/60 rounded-xl p-3 border border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 flex flex-col items-center gap-1">
-                  <label className="text-[10px] font-bold text-white uppercase tracking-widest">Min</label>
-                  <div className="flex items-center gap-2 w-full">
-                    <button type="button" onClick={() => adjustMinutes(-1)}
-                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
-                    <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputMinutes).padStart(2, "0")}</span>
-                    <button type="button" onClick={() => adjustMinutes(1)}
-                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-white mb-1">:</div>
-                <div className="flex-1 flex flex-col items-center gap-1">
-                  <label className="text-[10px] font-bold text-white uppercase tracking-widest">Seg</label>
-                  <div className="flex items-center gap-2 w-full">
-                    <button type="button" onClick={() => adjustSeconds(-1)}
-                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">−</button>
-                    <span className="flex-1 text-center text-4xl font-timer font-black text-white">{String(inputSeconds).padStart(2, "0")}</span>
-                    <button type="button" onClick={() => adjustSeconds(1)}
-                      className="bg-slate-700 active:bg-slate-600 border border-slate-500 rounded-xl p-3 text-white text-lg font-bold">+</button>
-                  </div>
-                </div>
-              </div>
-            </form>
-
             {/* Reset */}
             <button
               onClick={reset}
