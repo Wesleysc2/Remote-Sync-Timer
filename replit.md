@@ -114,3 +114,31 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+## Deployment (Namecheap VPS or any Node.js host)
+
+The project requires a Node.js server (for WebSocket support). Shared static hosting is not sufficient.
+
+### Steps
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Build the frontend (outputs to artifacts/synctimer/dist/public/)
+NODE_ENV=production pnpm --filter @workspace/synctimer run build
+
+# 3. Build the backend (outputs to artifacts/api-server/dist/index.mjs)
+pnpm --filter @workspace/api-server run build
+
+# 4. Start the server (serves frontend + WebSocket on the same port)
+PORT=80 NODE_ENV=production node artifacts/api-server/dist/index.mjs
+```
+
+The Express server automatically serves the built frontend static files from `artifacts/synctimer/dist/public/` and falls back to `index.html` for SPA routing. WebSocket connects on the same port at `/ws`.
+
+### Entry points
+
+- `index.html` — project root HTML entry (mirrors `artifacts/synctimer/index.html`; the source for what gets served at `/` after building)
+- `artifacts/synctimer/src/main.tsx` — React app entry
+- `artifacts/api-server/src/index.ts` — Express server entry

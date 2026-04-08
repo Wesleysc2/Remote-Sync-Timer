@@ -1,6 +1,8 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import { join } from "path";
+import { existsSync } from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -30,5 +32,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+const distPath = join(process.cwd(), "artifacts/synctimer/dist/public");
+
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/ws")) {
+      return next();
+    }
+    res.sendFile(join(distPath, "index.html"));
+  });
+}
 
 export default app;
