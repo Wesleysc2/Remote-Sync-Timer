@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "LB9aEbjJVhWu6CJ4oEPjv"
+uri = "file://synctimer-namecheap.tar.gz"
+type = "unspecified"
+title = "SyncTimer — Namecheap Static Files"
