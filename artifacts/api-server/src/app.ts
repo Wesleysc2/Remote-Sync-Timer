@@ -1,8 +1,9 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import { join } from "path";
+import { resolve, dirname } from "path";
 import { existsSync } from "fs";
+import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -33,16 +34,18 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-const distPath = join(process.cwd(), "artifacts/synctimer/dist/public");
+// Resolve path to project-root/dist from the built file location
+// Built file: artifacts/api-server/dist/index.mjs → up 3 levels → project root → dist/
+const distPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "dist");
 
 if (existsSync(distPath)) {
   app.use(express.static(distPath));
 
-  app.get("*", (req, res, next) => {
+  app.get("/{*path}", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/ws")) {
       return next();
     }
-    res.sendFile(join(distPath, "index.html"));
+    res.sendFile(resolve(distPath, "index.html"));
   });
 }
 

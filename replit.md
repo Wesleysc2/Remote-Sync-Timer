@@ -122,23 +122,24 @@ The project requires a Node.js server (for WebSocket support). Shared static hos
 ### Steps
 
 ```bash
-# 1. Install dependencies
+# 1. Clone the repo and install dependencies
 pnpm install
 
-# 2. Build the frontend (outputs to artifacts/synctimer/dist/public/)
-NODE_ENV=production pnpm --filter @workspace/synctimer run build
+# 2. Build everything and start the server (default port 3000)
+pnpm start
 
-# 3. Build the backend (outputs to artifacts/api-server/dist/index.mjs)
-pnpm --filter @workspace/api-server run build
-
-# 4. Start the server (serves frontend + WebSocket on the same port)
-PORT=80 NODE_ENV=production node artifacts/api-server/dist/index.mjs
+# Or with a custom port:
+PORT=8080 pnpm start
 ```
 
-The Express server automatically serves the built frontend static files from `artifacts/synctimer/dist/public/` and falls back to `index.html` for SPA routing. WebSocket connects on the same port at `/ws`.
+The `pnpm start` script does three things in order:
+1. Builds the frontend → outputs to `dist/` at the project root
+2. Builds the backend → outputs to `artifacts/api-server/dist/index.mjs`
+3. Starts the Express server → serves the frontend files + WebSocket at the same port
 
 ### Entry points
 
-- `index.html` — project root HTML entry (mirrors `artifacts/synctimer/index.html`; the source for what gets served at `/` after building)
-- `artifacts/synctimer/src/main.tsx` — React app entry
-- `artifacts/api-server/src/index.ts` — Express server entry
+- `index.html` — project root source entry (processed by Vite during build)
+- `dist/index.html` — compiled app entry served by the Express server in production
+- `artifacts/synctimer/src/main.tsx` — React app root
+- `artifacts/api-server/src/index.ts` — Express server root
