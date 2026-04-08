@@ -21,14 +21,14 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server + WebSocket backend
+│   └── synctimer/          # React frontend (SyncTimer app)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
 ├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
 ├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
 ├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
 ├── tsconfig.json           # Root TS project references
@@ -67,23 +67,32 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /healthz` (full path: `/api/healthz`)
 - Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- `PORT=8080 pnpm --filter @workspace/api-server run dev` — run the dev server
+- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.mjs`)
+
+### `artifacts/synctimer` (`@workspace/synctimer`)
+
+React + Vite frontend for the SyncTimer app.
+
+- Entry: `src/main.tsx` — mounts React app
+- Routing: `src/App.tsx` — `/` display page, `/admin` admin panel
+- UI components used: `card`, `toast`, `toaster`, `tooltip` (from `src/components/ui/`)
+- Hooks: `src/hooks/use-toast.ts`
+- Timer logic: `src/lib/useTimerSync.ts`, `src/lib/useTimerSounds.ts`
+- `PORT=19211 BASE_PATH=/ pnpm --filter @workspace/synctimer run dev` — run the dev server
 
 ### `lib/db` (`@workspace/db`)
 
 Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
+- `src/schema/index.ts` — barrel re-export of all models (currently empty)
+- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`.
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 
