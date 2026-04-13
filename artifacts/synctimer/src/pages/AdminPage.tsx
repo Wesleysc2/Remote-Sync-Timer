@@ -1,371 +1,286 @@
-import { useState, useEffect } from "react";
-import { useTimerSync, formatTime } from "@/lib/useTimerSync";
-import { useTimerSounds, SOUND_PRESETS } from "@/lib/useTimerSounds";
-import { Link } from "wouter";
+import { useState, useEffect, useCallback } from "react";
+import { useSocket, fmt } from "@/lib/useSocket";
+import type { TimerState } from "@/lib/useSocket";
 
-const QUICK_PRESETS = [
-  { label: "1m", minutes: 1, key: "1" },
-  { label: "3m", minutes: 3, key: "3" },
-  { label: "5m", minutes: 5, key: "5" },
-  { label: "15m", minutes: 15, key: "f" },
+// ─── Web Audio ────────────────────────────────────────────────────────────────
+let _ctx: AudioContext | null = null;
+
+function primeAudio() {
+  if (!_ctx) _ctx = new AudioContext();
+}
+
+function playPreview(preset: string) {
+  if (!_ctx || preset === "nenhum") return;
+  const ctx = _ctx;
+  const t = ctx.currentTime;
+  const beep = (freq: number, dur: number, type: OscillatorType = "sine", vol = 0.35, delay = 0) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t + delay);
+    g.gain.exponentialRampToValueAtTime(0.001, t + delay + dur);
+    o.start(t + delay); o.stop(t + delay + dur + 0.05);
+  };
+  if (preset === "bipe") beep(880, 0.12);
+  else if (preset === "sino") { beep(1046, 0.8, "sine", 0.3); beep(1318, 0.6, "sine", 0.15); }
+  else if (preset === "digital") { beep(440, 0.05, "square", 0.25); beep(880, 0.05, "square", 0.25, 0.08); }
+  else if (preset === "suave") { beep(523, 0.5, "sine", 0.25); beep(659, 0.4, "sine", 0.15, 0.1); }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function statusText(s: TimerState): string {
+  const mode = s.mode === "countdown" ? "REGRESSIVO" : "PROGRESSIVO";
+  if (s.status === "idle") return `PARADO | ${mode}`;
+  if (s.status === "paused") return `PAUSADO | ${mode}`;
+  if (s.overtime || s.status === "finished") return `TEMPO ESGOTADO | ${mode}`;
+  return `EM EXECUÇÃO | ${mode}`;
+}
+
+const SOUNDS = [
+  { preset: "bipe",    icon: "📡", label: "BIPE" },
+  { preset: "sino",    icon: "🔔", label: "SINO" },
+  { preset: "digital", icon: "💻", label: "DIGITAL" },
+  { preset: "suave",   icon: "🎵", label: "SUAVE" },
+  { preset: "nenhum",  icon: "🔇", label: "NENHUM" },
 ];
 
+const TRIGGERS = [
+  { label: "1m",  seconds: 60,   hint: "[1]" },
+  { label: "3m",  seconds: 180,  hint: "[3]" },
+  { label: "5m",  seconds: 300,  hint: "[5]" },
+  { label: "15m", seconds: 900,  hint: "[F]" },
+  { label: "30m", seconds: 1800 },
+  { label: "45m", seconds: 2700 },
+  { label: "1h",  seconds: 3600 },
+  { label: "2h",  seconds: 7200 },
+];
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const S = {
+  bg:     "#0f1117",
+  bg2:    "#1a1d27",
+  bg3:    "#252838",
+  border: "#2d3148",
+  accent: "#6366f1",
+  gold:   "#d97706",
+  green:  "#22c55e",
+  text:   "#f1f5f9",
+  muted:  "#64748b",
+};
+
+function card(style: React.CSSProperties = {}): React.CSSProperties {
+  return { background: S.bg2, border: `1px solid ${S.border}`, borderRadius: 12, padding: "1.25rem", width: "100%", maxWidth: 520, ...style };
+}
+
+function btn(bg: string, extra: React.CSSProperties = {}): React.CSSProperties {
+  return { background: bg, border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 800, fontSize: "0.85rem", letterSpacing: "0.12em", textTransform: "uppercase" as const, padding: "1rem", width: "100%", ...extra };
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function AdminPage() {
-  const { mode, status, currentSeconds, initialSeconds, connected, soundPreset, setMode, start, pause, reset, setQuick, setSound } = useTimerSync();
-  const { preview } = useTimerSounds(soundPreset);
+  const { state, connected, send } = useSocket();
+  const [mins, setMins] = useState(0);
+  const [secs, setSecs] = useState(0);
 
-  const [inputMinutes, setInputMinutes] = useState(0);
-  const [inputSeconds, setInputSeconds] = useState(0);
+  const doStart = useCallback(() => {
+    primeAudio();
+    send({ type: "SET_AND_START", seconds: mins * 60 + secs, mode: state.mode });
+  }, [mins, secs, state.mode, send]);
 
+  const doPause = useCallback(() => {
+    primeAudio();
+    send({ type: "PAUSE" });
+  }, [send]);
+
+  const doReset = useCallback(() => send({ type: "RESET" }), [send]);
+
+  const doQuick = useCallback((seconds: number) => {
+    primeAudio();
+    send({ type: "SET_AND_START", seconds, mode: state.mode });
+    if (state.mode === "countdown") {
+      setMins(Math.floor(seconds / 60));
+      setSecs(seconds % 60);
+    }
+  }, [state.mode, send]);
+
+  const doSetMode = useCallback((mode: "countdown" | "countup") => {
+    send({ type: "SET_MODE", mode });
+  }, [send]);
+
+  const doSetSound = useCallback((preset: string) => {
+    primeAudio();
+    send({ type: "SET_SOUND", preset });
+    playPreview(preset);
+  }, [send]);
+
+  // Keyboard shortcuts
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-
-      if (e.key === " " || e.code === "Space") {
-        e.preventDefault();
-        pause();
-      } else if (e.key === "r" || e.key === "R") {
-        reset();
-      } else if (e.key === "1") {
-        setQuick(1);
-      } else if (e.key === "3") {
-        setQuick(3);
-      } else if (e.key === "5") {
-        setQuick(5);
-      } else if (e.key === "f" || e.key === "F") {
-        setQuick(15);
-      }
+      if (e.code === "Space") { e.preventDefault(); doPause(); }
+      if (e.code === "Enter") { e.preventDefault(); doStart(); }
+      if (e.code === "KeyR")  { e.preventDefault(); doReset(); }
+      if (e.code === "Digit1") doQuick(60);
+      if (e.code === "Digit3") doQuick(180);
+      if (e.code === "Digit5") doQuick(300);
+      if (e.code === "KeyF")   doQuick(900);
     };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [pause, reset, setQuick]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [doStart, doPause, doReset, doQuick]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    start(inputMinutes, inputSeconds);
-  };
-
-  const adjustMinutes = (delta: number) => {
-    setInputMinutes((prev) => Math.max(0, Math.min(99, prev + delta)));
-  };
-
-  const adjustSeconds = (delta: number) => {
-    setInputSeconds((prev) => {
-      let next = prev + delta;
-      if (next < 0) next = 59;
-      if (next > 59) next = 0;
-      return next;
-    });
-  };
-
-  const statusLabel = () => {
-    if (status === "running") return "RODANDO";
-    if (status === "paused") return "PAUSADO";
-    if (status === "finished") return "FINALIZADO";
-    return "PARADO";
-  };
-
-  const statusColor = () => {
-    if (status === "running") return "text-emerald-400";
-    if (status === "paused") return "text-yellow-400";
-    if (status === "finished") return "text-red-400";
-    return "text-slate-400";
-  };
-
-  const modeLabel = mode === "countdown" ? "REGRESSIVO" : "PROGRESSIVO";
+  const pauseLabel = state.status === "running" ? "PAUSAR" : state.status === "paused" ? "RETOMAR" : "INICIAR";
+  const pauseBg    = state.status === "running" ? S.gold  : state.status === "paused" ? S.green  : S.accent;
+  const shortcut   = (label: string) => (
+    <span style={{ marginLeft: "0.4rem", fontSize: "0.6rem", background: "rgba(255,255,255,0.18)", borderRadius: 4, padding: "0.1rem 0.35rem", verticalAlign: "middle", fontWeight: 600 }}>
+      {label}
+    </span>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4 flex flex-col items-center">
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        <span className={`text-[10px] font-mono px-2 py-1 rounded ${connected ? "bg-emerald-900/60 text-emerald-400" : "bg-red-900/60 text-red-400"}`}>
-          {connected ? "● ONLINE" : "○ CONECTANDO"}
-        </span>
-        <Link
-          href="/"
-          className="px-4 py-2 bg-slate-800/90 hover:bg-slate-700 backdrop-blur-md border border-slate-600 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white shadow-xl transition-all uppercase"
+    <div
+      style={{ minHeight: "100vh", background: S.bg, display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 1rem 3rem" }}
+      onClick={primeAudio}
+    >
+      {/* Top bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", maxWidth: 520 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: connected ? S.green : "#ef4444", display: "block" }} />
+          <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.15em", color: S.muted }}>
+            {connected ? "ONLINE" : "OFFLINE"}
+          </span>
+        </div>
+        <a
+          href={import.meta.env.BASE_URL}
+          style={{ fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", color: S.muted, textDecoration: "none", padding: "0.5rem 1rem", border: `1px solid ${S.border}`, borderRadius: 8 }}
         >
           MODO TELA
-        </Link>
+        </a>
       </div>
 
-      <div className="max-w-md w-full space-y-5 pt-14">
+      {/* Title */}
+      <div style={{ textAlign: "center" }}>
+        <h1 style={{ fontSize: "1.3rem", fontWeight: 800, letterSpacing: "0.15em", textTransform: "uppercase", color: S.text }}>
+          PAINEL DE CONTROLE
+        </h1>
+        <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.2em", color: S.muted, marginTop: "0.25rem" }}>
+          {statusText(state)}
+        </p>
+        <p className="font-timer" style={{ fontSize: "1.75rem", fontWeight: 900, color: S.text, marginTop: "0.25rem" }}>
+          {fmt(state.currentSeconds)}
+        </p>
+      </div>
 
-        {/* Mode toggle — mobile only */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-xl border border-white/20 sm:hidden">
-          <button
-            onClick={() => setMode("countdown")}
-            className={`py-3 rounded-lg font-bold text-sm transition-all uppercase ${
-              mode === "countdown"
-                ? "bg-white text-slate-900 shadow"
-                : "text-white"
-            }`}
-          >
-            Regressivo
-          </button>
-          <button
-            onClick={() => setMode("countup")}
-            className={`py-3 rounded-lg font-bold text-sm transition-all uppercase ${
-              mode === "countup"
-                ? "bg-white text-slate-900 shadow"
-                : "text-white"
-            }`}
-          >
-            Progressivo
-          </button>
+      {/* Mode toggle */}
+      <div style={card({ padding: "1rem" })}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderRadius: 8, overflow: "hidden", border: `1px solid ${S.border}` }}>
+          {(["countdown", "countup"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => doSetMode(m)}
+              style={{
+                padding: "0.85rem",
+                fontWeight: 800, fontSize: "0.85rem", letterSpacing: "0.12em", textTransform: "uppercase",
+                cursor: "pointer", border: "none",
+                background: state.mode === m ? S.text : S.bg3,
+                color: state.mode === m ? S.bg : S.muted,
+              }}
+            >
+              {m === "countdown" ? "REGRESSIVO" : "PROGRESSIVO"}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Header — desktop/tablet only */}
-        <div className="hidden sm:block text-center pb-2 border-b border-white">
-          <h1 className="text-xl font-black tracking-tight text-white uppercase">
-            Painel de Controle
-          </h1>
-          <div className="flex justify-center gap-4 mt-2 text-xs font-mono uppercase">
-            <span className={statusColor()}>{statusLabel()}</span>
-            <span className="text-white">|</span>
-            <span className="text-white font-bold">{modeLabel}</span>
-          </div>
-        </div>
-
-        {/* Mode toggle — desktop/tablet only */}
-        <div className="hidden sm:grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-lg border border-white/20">
-          <button
-            onClick={() => setMode("countdown")}
-            className={`py-3 rounded-md font-bold text-sm transition-all uppercase ${
-              mode === "countdown"
-                ? "bg-white text-slate-900 shadow"
-                : "text-white hover:bg-slate-700"
-            }`}
-          >
-            Regressivo
-          </button>
-          <button
-            onClick={() => setMode("countup")}
-            className={`py-3 rounded-md font-bold text-sm transition-all uppercase ${
-              mode === "countup"
-                ? "bg-white text-slate-900 shadow"
-                : "text-white hover:bg-slate-700"
-            }`}
-          >
-            Progressivo
-          </button>
-        </div>
-
-        {/* Time input form — desktop/tablet only */}
-        <form onSubmit={handleSubmit} className="hidden sm:block bg-slate-800 rounded-xl p-4 shadow-lg border border-white/20 space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 flex flex-col items-center">
-              <label className="text-xs font-bold text-white mb-1 uppercase">Min</label>
-              <div className="flex flex-col w-full gap-1">
-                <button
-                  type="button"
-                  onClick={() => adjustMinutes(1)}
-                  className="bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded p-2 text-white active:bg-slate-500"
-                >
-                  <svg className="w-6 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" />
-                  </svg>
-                </button>
+      {/* Time input — desktop only */}
+      <div style={{ ...card(), display: "none" }} className="sm-show-block">
+        <style>{`.sm-show-block { display: block !important; } @media (max-width: 639px) { .sm-show-block { display: none !important; } }`}</style>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: "0.5rem" }}>
+          {[
+            { label: "MIN", value: mins, set: setMins, max: 99 },
+            null,
+            { label: "SEG", value: secs, set: setSecs, max: 59 },
+          ].map((col, i) =>
+            col === null ? (
+              <span key={i} className="font-timer" style={{ fontSize: "2rem", fontWeight: 900, color: S.muted, textAlign: "center" }}>:</span>
+            ) : (
+              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.35rem" }}>
+                <label style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.15em", color: S.muted }}>{col.label}</label>
+                <button onClick={() => col.set((v) => Math.min(col.max, v + 1))} style={{ width: "100%", padding: "0.6rem", background: S.bg3, border: `1px solid ${S.border}`, borderRadius: 6, color: S.text, fontSize: "1rem", cursor: "pointer" }}>▲</button>
                 <input
                   type="number"
-                  min={0}
-                  max={99}
-                  value={inputMinutes}
-                  onChange={(e) => setInputMinutes(Math.max(0, Math.min(99, parseInt(e.target.value) || 0)))}
-                  className="w-full bg-slate-900 border border-slate-500 rounded py-2 text-center text-3xl font-mono text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white"
+                  value={col.value}
+                  onChange={(e) => col.set(Math.max(0, Math.min(col.max, Number(e.target.value))))}
+                  className="font-timer"
+                  style={{ width: "100%", padding: "0.5rem", textAlign: "center", fontSize: "2.5rem", fontWeight: 900, background: S.bg3, border: `1px solid ${S.border}`, borderRadius: 6, color: S.text }}
+                  min={0} max={col.max}
                 />
-                <button
-                  type="button"
-                  onClick={() => adjustMinutes(-1)}
-                  className="bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded p-2 text-white active:bg-slate-500"
-                >
-                  <svg className="w-6 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                <button onClick={() => col.set((v) => Math.max(0, v - 1))} style={{ width: "100%", padding: "0.6rem", background: S.bg3, border: `1px solid ${S.border}`, borderRadius: 6, color: S.text, fontSize: "1rem", cursor: "pointer" }}>▼</button>
               </div>
-            </div>
-
-            <div className="text-2xl font-bold text-white pb-8">:</div>
-
-            <div className="flex-1 flex flex-col items-center">
-              <label className="text-xs font-bold text-white mb-1 uppercase">Seg</label>
-              <div className="flex flex-col w-full gap-1">
-                <button
-                  type="button"
-                  onClick={() => adjustSeconds(1)}
-                  className="bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded p-2 text-white active:bg-slate-500"
-                >
-                  <svg className="w-6 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" />
-                  </svg>
-                </button>
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={inputSeconds}
-                  onChange={(e) => setInputSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
-                  className="w-full bg-slate-900 border border-slate-500 rounded py-2 text-center text-3xl font-mono text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => adjustSeconds(-1)}
-                  className="bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded p-2 text-white active:bg-slate-500"
-                >
-                  <svg className="w-6 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 border border-white/10 text-white font-black text-xl rounded-lg transition-transform active:scale-95 shadow-lg uppercase relative"
-          >
-            DEFINIR E INICIAR
-            <span className="absolute right-3 top-3 text-[10px] bg-white/20 px-1 rounded font-mono hidden sm:inline">
-              [ENTER]
-            </span>
-          </button>
-        </form>
-
-        {/* Pause/Reset buttons — desktop/tablet only */}
-        <div className="hidden sm:grid grid-cols-2 gap-4">
-          <button
-            onClick={pause}
-            className={`col-span-2 py-6 border border-white/10 text-white rounded-xl font-black text-2xl shadow-lg transition-transform active:scale-95 uppercase relative ${
-              status === "paused"
-                ? "bg-emerald-600 hover:bg-emerald-500"
-                : "bg-yellow-600 hover:bg-yellow-500"
-            }`}
-          >
-            {status === "paused" ? "RETOMAR" : "PAUSAR"}
-            <span className="absolute right-4 top-4 text-xs bg-black/20 px-1.5 py-0.5 rounded font-mono hidden sm:inline">
-              [ESPAÇO]
-            </span>
-          </button>
-
-          <button
-            onClick={reset}
-            className="col-span-2 py-3 bg-slate-800 hover:bg-red-900 border border-white text-white hover:text-white rounded-lg font-bold transition-colors uppercase tracking-widest text-xs relative"
-          >
-            Resetar Timer
-            <span className="ml-2 bg-white/10 px-1 rounded font-mono hidden sm:inline">[R]</span>
-          </button>
+            )
+          )}
         </div>
+        <button onClick={doStart} style={{ ...btn(S.accent), marginTop: "1rem" }}>
+          DEFINIR E INICIAR {shortcut("ENTER")}
+        </button>
+      </div>
 
-        {/* Sound selector — desktop/tablet only */}
-        <div className="hidden sm:block pt-2 border-t border-white/30">
-          <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-wider text-center">
-            Som do Timer
-          </h3>
-          <div className="grid grid-cols-5 gap-2">
-            {SOUND_PRESETS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setSound(s.id);
-                  preview(s.id);
-                }}
-                className={`flex flex-col items-center gap-1 py-3 rounded-xl border font-bold text-sm transition-all active:scale-95 ${
-                  soundPreset === s.id
-                    ? "bg-indigo-600 border-white text-white shadow-lg"
-                    : "bg-slate-800 border-white/20 text-slate-300 hover:bg-slate-700 hover:border-white/50"
-                }`}
-              >
-                <span className="text-xl">{s.emoji}</span>
-                <span className="text-[11px] uppercase tracking-wide">{s.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Pause / Reset */}
+      <div style={card()}>
+        <button onClick={doPause} style={btn(pauseBg)}>
+          {pauseLabel} {shortcut("ESPAÇO")}
+        </button>
+        <button onClick={doReset} style={{ ...btn(S.bg3, { border: `1px solid ${S.border}`, marginTop: "0.6rem" }) }}>
+          RESETAR TIMER {shortcut("R")}
+        </button>
+      </div>
 
-        {/* Quick triggers — always visible */}
-        <div className="pt-2 border-t border-white/30">
-          <h3 className="text-xs font-bold text-white mb-4 uppercase tracking-wider text-center">
-            Gatilhos Rapidos
-          </h3>
-
-          {/* Mobile: vertical stack */}
-          <div className="flex flex-col gap-3 sm:hidden">
-            {QUICK_PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => setQuick(preset.minutes)}
-                className="relative w-full py-6 bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 border border-white/30 text-white rounded-2xl font-timer font-black text-4xl shadow-lg transition-all active:scale-95"
-              >
-                {preset.label}
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] text-white/40 font-mono">
-                  [{preset.key}]
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Desktop/tablet: horizontal grid */}
-          <div className="hidden sm:grid grid-cols-4 gap-2">
-            {QUICK_PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => setQuick(preset.minutes)}
-                className="relative py-3 bg-slate-800 hover:bg-indigo-600 border border-white text-white rounded-md font-mono font-bold transition-all active:scale-95 group"
-              >
-                {preset.label}
-                <span className="absolute top-0 right-0 p-0.5 text-[8px] opacity-60 font-sans group-hover:opacity-100">
-                  [{preset.key}]
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Mobile-only: controls group */}
-        <div className="sm:hidden">
-          <h3 className="text-xs font-bold text-white mb-4 uppercase tracking-wider text-center">
-            Controles
-          </h3>
-          <div className="bg-slate-800/60 border border-white/20 rounded-2xl p-4 flex flex-col gap-3">
-
-            {/* Pause/Resume */}
+      {/* Sound — desktop only */}
+      <div style={{ ...card(), display: "none" }} className="sm-show-block">
+        <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.2em", color: S.muted, textAlign: "center", marginBottom: "1rem" }}>SOM DO TIMER</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.4rem" }}>
+          {SOUNDS.map(({ preset, icon, label }) => (
             <button
-              onClick={pause}
-              className={`w-full py-5 border border-white/10 text-white rounded-2xl font-black text-2xl shadow-lg transition-all active:scale-95 uppercase ${
-                status === "paused"
-                  ? "bg-emerald-600 active:bg-emerald-700"
-                  : "bg-yellow-600 active:bg-yellow-700"
-              }`}
+              key={preset}
+              onClick={() => doSetSound(preset)}
+              style={{
+                padding: "0.65rem 0.25rem", borderRadius: 8,
+                display: "flex", flexDirection: "column", alignItems: "center", gap: "0.2rem",
+                cursor: "pointer",
+                background: state.soundPreset === preset ? S.accent : S.bg3,
+                border: `1px solid ${state.soundPreset === preset ? S.accent : S.border}`,
+                color: state.soundPreset === preset ? "#fff" : S.muted,
+              }}
             >
-              {status === "paused" ? "RETOMAR" : "PAUSAR"}
+              <span style={{ fontSize: "1.1rem" }}>{icon}</span>
+              <span style={{ fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.05em" }}>{label}</span>
             </button>
-
-            {/* Reset */}
-            <button
-              onClick={reset}
-              className="w-full py-3 bg-slate-900/40 active:bg-red-950 border border-white/20 text-white/60 rounded-xl font-bold uppercase tracking-widest text-sm transition-all active:scale-95"
-            >
-              Resetar Timer
-            </button>
-          </div>
+          ))}
         </div>
+      </div>
 
-        {/* Current time display — desktop/tablet only */}
-        {(status === "running" || status === "paused" || status === "finished") && (
-          <div className="hidden sm:block text-center pt-2 border-t border-white/20">
-            <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Tempo Atual</p>
-            <p className="text-4xl font-timer font-black text-white">{formatTime(currentSeconds)}</p>
-            {mode === "countdown" && initialSeconds > 0 && (
-              <div className="w-full bg-slate-700 rounded-full h-2 mt-3">
-                <div
-                  className="bg-indigo-500 h-2 rounded-full transition-all duration-1000"
-                  style={{ width: `${(currentSeconds / initialSeconds) * 100}%` }}
-                />
-              </div>
-            )}
-          </div>
-        )}
+      {/* Quick triggers */}
+      <div style={card()}>
+        <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.2em", color: S.muted, textAlign: "center", marginBottom: "1rem" }}>GATILHOS RÁPIDOS</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem" }}>
+          {TRIGGERS.map(({ label, seconds, hint }) => (
+            <button
+              key={label}
+              onClick={() => doQuick(seconds)}
+              style={{
+                padding: "0.85rem 0.5rem",
+                background: S.bg3, border: `1px solid ${S.border}`, borderRadius: 8,
+                color: S.text, cursor: "pointer",
+                display: "flex", flexDirection: "column", alignItems: "center",
+              }}
+            >
+              <span className="font-timer" style={{ fontWeight: 700, fontSize: "0.95rem" }}>{label}</span>
+              {hint && <span style={{ fontSize: "0.5rem", color: S.muted, letterSpacing: "0.1em", marginTop: "0.1rem" }}>{hint}</span>}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

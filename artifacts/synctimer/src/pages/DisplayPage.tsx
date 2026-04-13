@@ -1,209 +1,187 @@
 import { useEffect, useRef, useState } from "react";
-import { useTimerSync, formatTime } from "@/lib/useTimerSync";
-import { useTimerSounds } from "@/lib/useTimerSounds";
-import { Link } from "wouter";
+import { useSocket, fmt } from "@/lib/useSocket";
+import type { TimerState } from "@/lib/useSocket";
 
-const IDLE_LOGO_DELAY = 3000;
+// ─── Web Audio ────────────────────────────────────────────────────────────────
+let _ctx: AudioContext | null = null;
 
+function primeAudio() {
+  if (!_ctx) _ctx = new AudioContext();
+}
+
+function playSound(preset: string) {
+  if (!_ctx || preset === "nenhum") return;
+  const ctx = _ctx;
+  const t = ctx.currentTime;
+  const beep = (
+    freq: number,
+    dur: number,
+    type: OscillatorType = "sine",
+    vol = 0.35,
+    delay = 0,
+  ) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t + delay);
+    g.gain.exponentialRampToValueAtTime(0.001, t + delay + dur);
+    o.start(t + delay);
+    o.stop(t + delay + dur + 0.05);
+  };
+  if (preset === "bipe") {
+    beep(880, 0.12);
+  } else if (preset === "sino") {
+    beep(1046, 0.8, "sine", 0.3);
+    beep(1318, 0.6, "sine", 0.15);
+  } else if (preset === "digital") {
+    beep(440, 0.05, "square", 0.25);
+    beep(880, 0.05, "square", 0.25, 0.08);
+  } else if (preset === "suave") {
+    beep(523, 0.5, "sine", 0.25);
+    beep(659, 0.4, "sine", 0.15, 0.1);
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function statusLabel(s: TimerState): string {
+  if (s.status === "idle") return "AGUARDANDO";
+  if (s.status === "paused") return "PAUSADO";
+  if (s.overtime || s.status === "finished") return "TEMPO ESGOTADO";
+  return "EM EXECUÇÃO";
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function DisplayPage() {
-  const { mode, status, currentSeconds, initialSeconds, overtime, connected, pause, soundPreset } = useTimerSync();
-  const { playStart, playPause, primeAudio } = useTimerSounds(soundPreset);
-  const prevStatusRef = useRef<string | null>(null);
-  const [audioReady, setAudioReady] = useState(false);
-  const [showLogo, setShowLogo] = useState(false);
-  const logoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { state, connected } = useSocket();
+  const prevStatus = useRef<string | null>(null);
+  const [soundReady, setSoundReady] = useState(false);
+  const [logoVisible, setLogoVisible] = useState(false);
+  const logoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Play sounds on status transitions
   useEffect(() => {
-    const activate = () => {
-      primeAudio();
-      setAudioReady(true);
-    };
-    window.addEventListener("click", activate, { once: true });
-    window.addEventListener("keydown", activate, { once: true });
-    window.addEventListener("touchstart", activate, { once: true });
-    return () => {
-      window.removeEventListener("click", activate);
-      window.removeEventListener("keydown", activate);
-      window.removeEventListener("touchstart", activate);
-    };
-  }, [primeAudio]);
-
-  useEffect(() => {
-    const prev = prevStatusRef.current;
-    if (prev !== null && prev !== status) {
-      if (status === "running") playStart();
-      else if (status === "paused") playPause();
-    }
-    prevStatusRef.current = status;
-  }, [status, playStart, playPause]);
-
-  // Show logo after 3s idle OR after 30s of finished/overtime
-  useEffect(() => {
-    if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
-
-    if (status === "idle") {
-      logoTimerRef.current = setTimeout(() => setShowLogo(true), 3_000);
-    } else if (status === "finished" || overtime) {
-      logoTimerRef.current = setTimeout(() => setShowLogo(true), 30_000);
-    } else {
-      setShowLogo(false);
-    }
-
-    return () => {
-      if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
-    };
-  }, [status, overtime]);
-
-  const isFinished = status === "finished";
-  const isRunning = status === "running";
-  const isPaused = status === "paused";
-  const showAlert = overtime || isFinished;
-
-  const progress =
-    mode === "countdown" && initialSeconds > 0
-      ? (currentSeconds / initialSeconds) * 100
-      : 0;
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === " " || e.code === "Space") {
-        e.preventDefault();
-        pause();
+    const prev = prevStatus.current;
+    const curr = state.status;
+    if (prev !== null && prev !== curr) {
+      if (curr === "running" || curr === "paused" || curr === "finished") {
+        playSound(state.soundPreset);
       }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [pause]);
+    }
+    prevStatus.current = curr;
+  }, [state.status, state.soundPreset]);
 
+  // Logo fade logic
   useEffect(() => {
-    if (status === "idle") {
-      document.title = "SyncTimer";
+    if (logoTimer.current) clearTimeout(logoTimer.current);
+    if (state.status === "running") {
+      setLogoVisible(false);
       return;
     }
-    const timeStr = formatTime(currentSeconds);
-    if (isFinished) {
-      document.title = `⏰ 00:00 — TEMPO ESGOTADO`;
-    } else if (overtime) {
-      document.title = `🔴 +${timeStr} — OVERTIME`;
-    } else if (isPaused) {
-      document.title = `⏸ ${timeStr} — PAUSADO`;
+    if (state.status === "idle") {
+      logoTimer.current = setTimeout(() => setLogoVisible(true), 3000);
+    } else if (state.status === "finished" || state.overtime) {
+      logoTimer.current = setTimeout(() => setLogoVisible(true), 30000);
     } else {
-      document.title = timeStr;
+      setLogoVisible(false);
     }
     return () => {
-      document.title = "SyncTimer";
+      if (logoTimer.current) clearTimeout(logoTimer.current);
     };
-  }, [status, currentSeconds, isFinished, overtime, isPaused]);
+  }, [state.status, state.overtime]);
 
-  const timerColor = () => {
-    if (showAlert) return "text-red-400";
-    if (isPaused) return "text-yellow-300";
-    if (mode === "countdown" && initialSeconds > 0) {
-      const pct = currentSeconds / initialSeconds;
-      if (pct <= 0.1) return "text-red-400";
-      if (pct <= 0.25) return "text-orange-400";
-    }
-    return "text-white";
+  const handleClick = () => {
+    primeAudio();
+    setSoundReady(true);
   };
 
+  const isOvertime = state.overtime || (state.status === "finished" && state.mode === "countdown");
+  const digitColor = isOvertime ? "#ef4444" : state.status === "finished" ? "#d97706" : "#f1f5f9";
+  const timerHidden = logoVisible && state.status === "idle";
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center relative overflow-hidden">
-
-      {showAlert && (
-        <div
-          className="pointer-events-none fixed inset-0 z-10"
-          style={{ animation: "redFlash 1.2s ease-in-out infinite" }}
-        />
-      )}
-
-      <style>{`
-        @keyframes redFlash {
-          0%   { background-color: rgba(220, 38, 38, 0); }
-          50%  { background-color: rgba(220, 38, 38, 0.22); }
-          100% { background-color: rgba(220, 38, 38, 0); }
-        }
-      `}</style>
-
-      {!audioReady && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 bg-white/10 backdrop-blur border border-white/20 rounded-full text-[11px] text-white/50 font-mono animate-pulse pointer-events-none">
-          🔊 clique para ativar o som
-        </div>
-      )}
-
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        <span className={`text-[10px] font-mono px-2 py-1 rounded ${connected ? "bg-emerald-900/60 text-emerald-400" : "bg-red-900/60 text-red-400"}`}>
-          {connected ? "● ONLINE" : "○ CONECTANDO"}
-        </span>
-        <Link
-          href="/admin"
-          className="px-4 py-2 bg-slate-800/90 hover:bg-slate-700 backdrop-blur-md border border-slate-600 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white shadow-xl transition-all uppercase"
-        >
-          PAINEL
-        </Link>
-      </div>
-
-      {mode === "countdown" && initialSeconds > 0 && !showAlert && (
-        <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-800">
-          <div
-            className="h-full bg-indigo-500 transition-all duration-1000"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      )}
-
-      {/* Logo overlay — fades in after 3s idle */}
+    <div
+      style={{ width: "100vw", height: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", cursor: "default", userSelect: "none" }}
+      onClick={handleClick}
+    >
+      {/* Logo overlay */}
       <div
-        className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none transition-opacity duration-1000"
-        style={{ opacity: showLogo ? 1 : 0 }}
+        style={{
+          position: "absolute", inset: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          pointerEvents: "none", zIndex: 10,
+          opacity: logoVisible ? 1 : 0,
+          transition: "opacity 1s ease",
+        }}
       >
         <img
           src={`${import.meta.env.BASE_URL}idle-logo.svg`}
-          alt="Logo"
-          className="h-[15vw] sm:h-[20vw] w-auto object-contain"
+          alt=""
+          style={{ height: "20vw", width: "auto", objectFit: "contain" }}
         />
       </div>
 
-      {/* Timer content — fades out when logo shows */}
+      {/* Timer */}
       <div
-        className="relative z-20 text-center px-8 select-none transition-opacity duration-1000"
-        style={{ opacity: showLogo ? 0 : 1 }}
+        style={{
+          display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem",
+          opacity: timerHidden ? 0 : 1,
+          transition: "opacity 0.5s ease",
+        }}
       >
-        {showAlert && (
-          <p
-            className="text-xl font-black tracking-widest text-red-400 uppercase mb-4"
-            style={{ animation: "redFlash 1.2s ease-in-out infinite" }}
-          >
-            {isFinished ? "TEMPO ESGOTADO" : "TEMPO ESGOTADO — OVERTIME"}
-          </p>
-        )}
-
         <div
-          className={`text-[15vw] sm:text-[20vw] font-timer font-black leading-none transition-colors duration-500 ${timerColor()}`}
+          className="font-timer"
+          style={{
+            fontSize: "clamp(3rem, 20vw, 18rem)",
+            fontWeight: 900,
+            lineHeight: 1,
+            letterSpacing: "0.05em",
+            color: digitColor,
+          }}
         >
-          {formatTime(currentSeconds)}
+          {fmt(state.currentSeconds)}
         </div>
-
-        {status === "idle" && (
-          <p className="text-slate-500 text-lg font-mono uppercase tracking-widest mt-6">
-            AGUARDANDO
-          </p>
-        )}
-
-        {isPaused && !showAlert && (
-          <p className="text-yellow-400 text-xl font-mono uppercase tracking-widest mt-6 animate-pulse">
-            PAUSADO
-          </p>
-        )}
-
-        {isRunning && !showAlert && (
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse" />
-            <p className="text-slate-400 text-sm font-mono uppercase tracking-widest">
-              {mode === "countdown" ? "REGRESSIVO" : "PROGRESSIVO"}
-            </p>
-          </div>
-        )}
+        <div
+          style={{
+            fontSize: "clamp(0.9rem, 2.5vw, 2rem)",
+            fontWeight: 700,
+            letterSpacing: "0.25em",
+            textTransform: "uppercase",
+            color: "#64748b",
+          }}
+        >
+          {statusLabel(state)}
+        </div>
       </div>
+
+      {/* Connection badge */}
+      <div style={{ position: "absolute", top: "1rem", left: "1rem", display: "flex", alignItems: "center", gap: "0.5rem", opacity: 0.4 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: connected ? "#22c55e" : "#ef4444", display: "block" }} />
+        <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.12em", color: "#64748b" }}>
+          {connected ? "ONLINE" : "OFFLINE"}
+        </span>
+      </div>
+
+      {/* Sound hint */}
+      {!soundReady && (
+        <div style={{ position: "absolute", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)", fontSize: "0.75rem", color: "#64748b", letterSpacing: "0.1em", pointerEvents: "none", whiteSpace: "nowrap" }}>
+          🔊 toque para ativar o som
+        </div>
+      )}
+
+      {/* Admin link */}
+      <a
+        href={`${import.meta.env.BASE_URL}admin`}
+        style={{ position: "absolute", top: "1rem", right: "1rem", fontSize: "1.25rem", color: "#64748b", opacity: 0.2, textDecoration: "none", transition: "opacity 0.2s" }}
+        title="Painel de controle"
+        onClick={(e) => e.stopPropagation()}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.2")}
+      >
+        ⚙
+      </a>
     </div>
   );
 }
