@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SyncTimer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --bg2: #1a1d27;
+      --bg3: #252838;
+      --border: #2d3148;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --gold: #d97706;
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --green: #22c55e;
+      --red: #ef4444;
+      --font-timer: 'Orbitron', monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+
+    /* ── DISPLAY PAGE ── */
+    #display {
+      display: none;
+      width: 100vw; height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    #logo-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1s ease;
+      z-index: 10;
+    }
+    #logo-overlay.visible { opacity: 1; }
+    #logo-overlay img { height: 20vw; width: auto; object-fit: contain; }
+
+    #timer-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      transition: opacity 0.5s ease;
+    }
+    #timer-wrap.hidden { opacity: 0; }
+
+    #digits {
+      font-family: var(--font-timer);
+      font-size: clamp(3rem, 20vw, 18rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      transition: color 0.3s;
+    }
+    #digits.overtime { color: var(--red); }
+    #digits.finished { color: var(--gold); }
+
+    #status-label {
+      font-size: clamp(0.9rem, 2.5vw, 2rem);
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    #sound-hint {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      opacity: 1;
+      transition: opacity 0.5s;
+    }
+    #sound-hint.gone { opacity: 0; pointer-events: none; }
+
+    #goto-admin {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      font-size: 1.25rem;
+      color: var(--muted);
+      text-decoration: none;
+      opacity: 0.3;
+      transition: opacity 0.2s;
+    }
+    #goto-admin:hover { opacity: 1; }
+
+    /* ── ADMIN PAGE ── */
+    #admin {
+      display: none;
+      min-height: 100vh;
+      padding: 1.5rem 1rem 3rem;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg);
+    }
+
+    .panel-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .mode-btn {
+      padding: 0.85rem;
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: none;
+      background: var(--bg3);
+      color: var(--muted);
+      transition: background 0.2s, color 0.2s;
+    }
+    .mode-btn.active { background: var(--text); color: var(--bg); }
+
+    /* Time input */
+    .time-input-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .time-col { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+    .time-col label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.15em; color: var(--muted); }
+    .time-colon { font-family: var(--font-timer); font-size: 2rem; font-weight: 900; color: var(--muted); }
+    .arrow-btn {
+      width: 100%; padding: 0.6rem;
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 0.4rem;
+      color: var(--text); font-size: 1rem; cursor: pointer; transition: background 0.15s;
+    }
+    .arrow-btn:hover { background: var(--border); }
+    .time-num {
+      font-family: var(--font-timer);
+      font-size: 2.5rem; font-weight: 900;
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 0.4rem;
+      color: var(--text); text-align: center; width: 100%; padding: 0.5rem;
+      -moz-appearance: textfield;
+    }
+    .time-num::-webkit-inner-spin-button,
+    .time-num::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+    /* Buttons */
+    .btn {
+      width: 100%; padding: 1rem;
+      font-weight: 800; font-size: 0.9rem; letter-spacing: 0.12em; text-transform: uppercase;
+      border: none; border-radius: 0.5rem; cursor: pointer; transition: opacity 0.15s, filter 0.15s;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:active { filter: brightness(0.9); }
+    .btn-start { background: var(--accent); color: #fff; }
+    .btn-pause { background: var(--gold); color: #fff; }
+    .btn-resume { background: var(--green); color: #fff; }
+    .btn-reset { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+
+    .shortcut {
+      display: inline-block;
+      margin-left: 0.5rem;
+      font-size: 0.65rem;
+      background: rgba(255,255,255,0.15);
+      border-radius: 0.25rem;
+      padding: 0.1rem 0.35rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      vertical-align: middle;
+    }
+
+    /* Quick triggers */
+    .triggers-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+    }
+    .trig-btn {
+      padding: 0.85rem 0.5rem;
+      font-family: var(--font-timer);
+      font-weight: 700; font-size: 0.95rem;
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem;
+      color: var(--text); cursor: pointer; transition: background 0.15s;
+      text-align: center;
+    }
+    .trig-btn:hover { background: var(--border); }
+    .trig-label { font-size: 0.55rem; color: var(--muted); letter-spacing: 0.1em; display: block; margin-top: 0.1rem; }
+
+    /* Sounds */
+    .sounds-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.4rem;
+    }
+    .sound-btn {
+      padding: 0.65rem 0.25rem;
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem;
+      color: var(--text); cursor: pointer; font-size: 0.65rem; font-weight: 700;
+      letter-spacing: 0.05em; text-align: center; transition: background 0.15s, border-color 0.15s;
+      display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    }
+    .sound-btn .icon { font-size: 1.1rem; }
+    .sound-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* Admin current time readout */
+    #admin-clock {
+      font-family: var(--font-timer);
+      font-size: 2rem;
+      font-weight: 900;
+      text-align: center;
+      margin: 0.25rem 0;
+    }
+    #admin-status { font-size: 0.7rem; letter-spacing: 0.2em; color: var(--muted); text-align: center; }
+
+    /* Mobile: hide desktop-only sections */
+    @media (max-width: 639px) {
+      .desktop-only { display: none !important; }
+      .triggers-grid { grid-template-columns: repeat(2, 1fr); }
+      .trig-btn { padding: 1.2rem 0.5rem; font-size: 1.3rem; }
+      .trig-label { font-size: 0.65rem; }
+    }
+
+    /* Link to display */
+    #goto-display {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      transition: color 0.2s;
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+    }
+    #goto-display:hover { color: var(--text); border-color: var(--muted); }
+
+    .divider { width: 100%; max-width: 520px; border: none; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     DISPLAY PAGE
+════════════════════════════════════════ -->
+<div id="display">
+  <div id="logo-overlay">
+    <img src="idle-logo.svg" alt="Logo" />
+  </div>
+
+  <div id="timer-wrap">
+    <div id="digits">00:00</div>
+    <div id="status-label">PARADO</div>
+  </div>
+
+  <div id="sound-hint">toque para ativar o som</div>
+  <a id="goto-admin" href="?admin" title="Painel de Controle">⚙</a>
+</div>
+
+<!-- ════════════════════════════════════════
+     ADMIN PAGE
+════════════════════════════════════════ -->
+<div id="admin">
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:520px;">
+    <div class="status-bar">
+      <span class="dot"></span>
+      <span id="conn-label">LOCAL</span>
+    </div>
+    <a id="goto-display" href="index.html">MODO TELA</a>
+  </div>
+
+  <div class="panel-title">PAINEL DE CONTROLE</div>
+  <div id="admin-status">PARADO | REGRESSIVO</div>
+  <div id="admin-clock">00:00</div>
+
+  <!-- Mode toggle -->
+  <div class="card">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-countdown" onclick="setMode('countdown')">REGRESSIVO</button>
+      <button class="mode-btn" id="btn-countup" onclick="setMode('countup')">PROGRESSIVO</button>
+    </div>
+  </div>
+
+  <!-- Time input (desktop only) -->
+  <div class="card desktop-only" id="time-input-card">
+    <div class="time-input-row">
+      <div class="time-col">
+        <label>MIN</label>
+        <button class="arrow-btn" onclick="adjustMin(1)">▲</button>
+        <input class="time-num" type="number" id="inp-min" value="0" min="0" max="99" />
+        <button class="arrow-btn" onclick="adjustMin(-1)">▼</button>
+      </div>
+      <span class="time-colon">:</span>
+      <div class="time-col">
+        <label>SEG</label>
+        <button class="arrow-btn" onclick="adjustSec(1)">▲</button>
+        <input class="time-num" type="number" id="inp-sec" value="0" min="0" max="59" />
+        <button class="arrow-btn" onclick="adjustSec(-1)">▼</button>
+      </div>
+    </div>
+    <div style="margin-top:1rem;">
+      <button class="btn btn-start" onclick="setAndStart()">
+        DEFINIR E INICIAR <span class="shortcut">ENTER</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Pause / Resume / Reset -->
+  <div class="card">
+    <button class="btn btn-pause" id="btn-pause-resume" onclick="pauseResume()">
+      PAUSAR <span class="shortcut">ESPAÇO</span>
+    </button>
+    <div style="margin-top:0.6rem;">
+      <button class="btn btn-reset" onclick="resetTimer()">
+        RESETAR TIMER <span class="shortcut">R</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Sound (desktop only) -->
+  <div class="card desktop-only">
+    <div class="card-label">SOM DO TIMER</div>
+    <div class="sounds-grid">
+      <button class="sound-btn" data-preset="bipe"    onclick="setSound('bipe')">   <span class="icon">📡</span>BIPE</button>
+      <button class="sound-btn" data-preset="sino"    onclick="setSound('sino')">   <span class="icon">🔔</span>SINO</button>
+      <button class="sound-btn" data-preset="digital" onclick="setSound('digital')"><span class="icon">💻</span>DIGITAL</button>
+      <button class="sound-btn" data-preset="suave"   onclick="setSound('suave')">  <span class="icon">🎵</span>SUAVE</button>
+      <button class="sound-btn active" data-preset="nenhum" onclick="setSound('nenhum')"><span class="icon">🔇</span>NENHUM</button>
+    </div>
+  </div>
+
+  <!-- Quick triggers -->
+  <div class="card">
+    <div class="card-label">GATILHOS RÁPIDOS</div>
+    <div class="triggers-grid">
+      <button class="trig-btn" onclick="quickStart(60)">1m<span class="trig-label">[1]</span></button>
+      <button class="trig-btn" onclick="quickStart(180)">3m<span class="trig-label">[3]</span></button>
+      <button class="trig-btn" onclick="quickStart(300)">5m<span class="trig-label">[5]</span></button>
+      <button class="trig-btn" onclick="quickStart(900)">15m<span class="trig-label">[F]</span></button>
+      <button class="trig-btn" onclick="quickStart(1800)">30m<span class="trig-label"></span></button>
+      <button class="trig-btn" onclick="quickStart(2700)">45m<span class="trig-label"></span></button>
+      <button class="trig-btn" onclick="quickStart(3600)">1h<span class="trig-label"></span></button>
+      <button class="trig-btn" onclick="quickStart(7200)">2h<span class="trig-label"></span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════
+const DEFAULT_STATE = {
+  mode: 'countdown',
+  status: 'idle',
+  initialSeconds: 0,
+  currentSeconds: 0,
+  overtime: false,
+  soundPreset: 'nenhum',
+};
+
+let state = { ...DEFAULT_STATE };
+let tickInterval = null;
+const isAdmin = location.search.includes('admin');
+const channel = new BroadcastChannel('synctimer');
+
+// ════════════════════════════════════════
+//  WEB AUDIO
+// ════════════════════════════════════════
+let audioCtx = null;
+let audioReady = false;
+
+function primeAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  audioReady = true;
+  document.getElementById('sound-hint')?.classList.add('gone');
+}
+
+function playSound(preset) {
+  if (!audioCtx || preset === 'nenhum') return;
+  const ctx = audioCtx;
+  const t = ctx.currentTime;
+
+  const beep = (freq, dur, type = 'sine', vol = 0.4) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  };
+
+  if (preset === 'bipe') {
+    beep(880, 0.12, 'sine', 0.4);
+  } else if (preset === 'sino') {
+    beep(1046, 0.8, 'sine', 0.3);
+    beep(1318, 0.6, 'sine', 0.15);
+  } else if (preset === 'digital') {
+    beep(440, 0.05, 'square', 0.25);
+    setTimeout(() => { const tt = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.type='square'; o.frequency.value=880; g.gain.setValueAtTime(0.25,tt); g.gain.exponentialRampToValueAtTime(0.001,tt+0.05); o.start(tt); o.stop(tt+0.1); }, 80);
+  } else if (preset === 'suave') {
+    beep(523, 0.5, 'sine', 0.25);
+    beep(659, 0.4, 'sine', 0.15);
+  }
+}
+
+// ════════════════════════════════════════
+//  TIMER LOGIC (admin only)
+// ════════════════════════════════════════
+function startTick() {
+  if (tickInterval) clearInterval(tickInterval);
+  tickInterval = setInterval(() => {
+    if (state.status !== 'running') return;
+
+    if (state.mode === 'countdown') {
+      if (state.currentSeconds > 0) {
+        state.currentSeconds--;
+        if (state.currentSeconds === 0) {
+          state.status = 'finished';
+          state.overtime = false;
+        }
+      } else {
+        state.overtime = true;
+        state.currentSeconds--;
+      }
+    } else {
+      state.currentSeconds++;
+    }
+
+    saveAndBroadcast();
+  }, 1000);
+}
+
+function stopTick() {
+  if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+}
+
+function saveAndBroadcast() {
+  localStorage.setItem('synctimer_state', JSON.stringify(state));
+  channel.postMessage({ type: 'STATE', state });
+  if (isAdmin) renderAdmin();
+}
+
+// ── Admin commands ─────────────────────
+function setMode(m) {
+  state.mode = m;
+  document.getElementById('btn-countdown').classList.toggle('active', m === 'countdown');
+  document.getElementById('btn-countup').classList.toggle('active', m === 'countup');
+  saveAndBroadcast();
+}
+
+function setAndStart() {
+  const mins = parseInt(document.getElementById('inp-min').value) || 0;
+  const secs = parseInt(document.getElementById('inp-sec').value) || 0;
+  const total = mins * 60 + secs;
+  state.initialSeconds = total;
+  state.currentSeconds = total;
+  state.status = 'running';
+  state.overtime = false;
+  startTick();
+  saveAndBroadcast();
+  playSound(state.soundPreset);
+}
+
+function quickStart(seconds) {
+  state.initialSeconds = seconds;
+  state.currentSeconds = seconds;
+  state.status = 'running';
+  state.overtime = false;
+  startTick();
+  saveAndBroadcast();
+  playSound(state.soundPreset);
+
+  if (state.mode === 'countdown') {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    document.getElementById('inp-min').value = m;
+    document.getElementById('inp-sec').value = s;
+  }
+}
+
+function pauseResume() {
+  if (state.status === 'running') {
+    state.status = 'paused';
+    stopTick();
+    playSound(state.soundPreset);
+  } else if (state.status === 'paused' || state.status === 'finished') {
+    state.status = 'running';
+    startTick();
+    playSound(state.soundPreset);
+  } else if (state.status === 'idle') {
+    setAndStart();
+    return;
+  }
+  saveAndBroadcast();
+}
+
+function resetTimer() {
+  stopTick();
+  state.status = 'idle';
+  state.currentSeconds = 0;
+  state.initialSeconds = 0;
+  state.overtime = false;
+  saveAndBroadcast();
+}
+
+function setSound(preset) {
+  state.soundPreset = preset;
+  document.querySelectorAll('.sound-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === preset);
+  });
+  saveAndBroadcast();
+  playSound(preset);
+}
+
+function adjustMin(delta) {
+  const inp = document.getElementById('inp-min');
+  inp.value = Math.max(0, Math.min(99, (parseInt(inp.value) || 0) + delta));
+}
+function adjustSec(delta) {
+  const inp = document.getElementById('inp-sec');
+  inp.value = Math.max(0, Math.min(59, (parseInt(inp.value) || 0) + delta));
+}
+
+// ════════════════════════════════════════
+//  FORMAT
+// ════════════════════════════════════════
+function formatSeconds(s) {
+  const neg = s < 0;
+  const abs = Math.abs(s);
+  const h = Math.floor(abs / 3600);
+  const m = Math.floor((abs % 3600) / 60);
+  const sec = abs % 60;
+  const pad = n => String(n).padStart(2, '0');
+  let str = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+  return neg ? `+${str}` : str;
+}
+
+function statusText(s) {
+  const mode = s.mode === 'countdown' ? 'REGRESSIVO' : 'PROGRESSIVO';
+  if (s.status === 'idle') return `PARADO | ${mode}`;
+  if (s.status === 'paused') return `PAUSADO | ${mode}`;
+  if (s.status === 'running' && s.overtime) return `TEMPO ESGOTADO | ${mode}`;
+  if (s.status === 'finished' && !s.overtime) return `TEMPO ESGOTADO | ${mode}`;
+  return `EM EXECUÇÃO | ${mode}`;
+}
+
+// ════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════
+
+// ── Display render ─────────────────────
+let logoTimer = null;
+
+function renderDisplay() {
+  const digits = document.getElementById('digits');
+  const label = document.getElementById('status-label');
+  const wrap = document.getElementById('timer-wrap');
+  const logo = document.getElementById('logo-overlay');
+
+  const secs = state.overtime ? -(Math.abs(state.currentSeconds)) : state.currentSeconds;
+  digits.textContent = formatSeconds(state.currentSeconds);
+
+  digits.className = '';
+  if (state.overtime) digits.classList.add('overtime');
+  else if (state.status === 'finished') digits.classList.add('finished');
+
+  label.textContent = statusText(state);
+
+  // Logo logic
+  clearTimeout(logoTimer);
+  const showLogo = state.status === 'idle';
+  const showAfterTimeout = (state.status === 'finished' || state.overtime);
+
+  if (state.status === 'running') {
+    logo.classList.remove('visible');
+    wrap.classList.remove('hidden');
+  } else if (showLogo) {
+    logoTimer = setTimeout(() => {
+      logo.classList.add('visible');
+      wrap.classList.add('hidden');
+    }, 3000);
+  } else if (showAfterTimeout) {
+    logoTimer = setTimeout(() => {
+      logo.classList.add('visible');
+    }, 30000);
+  } else {
+    logo.classList.remove('visible');
+    wrap.classList.remove('hidden');
+  }
+}
+
+// ── Admin render ───────────────────────
+function renderAdmin() {
+  document.getElementById('admin-clock').textContent = formatSeconds(state.currentSeconds);
+  document.getElementById('admin-status').textContent = statusText(state);
+
+  const btn = document.getElementById('btn-pause-resume');
+  if (state.status === 'running') {
+    btn.textContent = ''; btn.innerHTML = 'PAUSAR <span class="shortcut">ESPAÇO</span>';
+    btn.className = 'btn btn-pause';
+  } else if (state.status === 'paused') {
+    btn.innerHTML = 'RETOMAR <span class="shortcut">ESPAÇO</span>';
+    btn.className = 'btn btn-resume';
+  } else {
+    btn.innerHTML = 'INICIAR <span class="shortcut">ESPAÇO</span>';
+    btn.className = 'btn btn-start';
+  }
+
+  document.getElementById('btn-countdown').classList.toggle('active', state.mode === 'countdown');
+  document.getElementById('btn-countup').classList.toggle('active', state.mode === 'countup');
+
+  document.querySelectorAll('.sound-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === state.soundPreset);
+  });
+}
+
+// ════════════════════════════════════════
+//  CROSS-TAB MESSAGING
+// ════════════════════════════════════════
+channel.onmessage = (e) => {
+  const msg = e.data;
+
+  if (msg.type === 'STATE') {
+    state = { ...msg.state };
+    if (!isAdmin) renderDisplay();
+    else renderAdmin();
+  }
+
+  if (msg.type === 'REQUEST_STATE' && isAdmin) {
+    channel.postMessage({ type: 'STATE', state });
+  }
+};
+
+// ════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if (!isAdmin) return;
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.code === 'Space') { e.preventDefault(); pauseResume(); }
+  if (e.code === 'Enter') { e.preventDefault(); setAndStart(); }
+  if (e.code === 'KeyR') { e.preventDefault(); resetTimer(); }
+  if (e.code === 'Digit1') quickStart(60);
+  if (e.code === 'Digit3') quickStart(180);
+  if (e.code === 'Digit5') quickStart(300);
+  if (e.code === 'KeyF') quickStart(900);
+});
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+(function init() {
+  if (isAdmin) {
+    document.getElementById('admin').style.display = 'flex';
+
+    // Restore state from localStorage
+    try {
+      const saved = localStorage.getItem('synctimer_state');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state = { ...DEFAULT_STATE, ...parsed };
+        // If was running, stay paused (timer can't resume on reload without knowing elapsed)
+        if (state.status === 'running') state.status = 'paused';
+      }
+    } catch(e) {}
+
+    renderAdmin();
+
+    // Prime audio on first interaction
+    document.addEventListener('click', primeAudio, { once: true });
+    document.addEventListener('keydown', primeAudio, { once: true });
+
+  } else {
+    document.getElementById('display').style.display = 'flex';
+
+    // Prime audio on click (display page)
+    document.addEventListener('click', () => {
+      primeAudio();
+    }, { once: true });
+
+    // Request state from admin tab
+    channel.postMessage({ type: 'REQUEST_STATE' });
+
+    // Fallback: load from localStorage
+    setTimeout(() => {
+      try {
+        const saved = localStorage.getItem('synctimer_state');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (!state || state.status === 'idle') {
+            state = { ...DEFAULT_STATE, ...parsed };
+          }
+        }
+      } catch(e) {}
+      renderDisplay();
+    }, 200);
+  }
+})();
+</script>
+</body>
+</html>
